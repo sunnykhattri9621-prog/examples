@@ -25,9 +25,22 @@ instead, and the lesson continues exactly as before.
 
 ## What it teaches
 
-Single-letter sounds in the Orton-Gillingham / Jolly Phonics order —
-**S, A, T, P, I, N** — the first six letters because they blend into many
-real words (sat, tap, pin, nip, tin).
+All 26 letter sounds, in synthetic-phonics teaching order rather than
+alphabetical order, split into five sets so a beginner meets a handful at a
+time:
+
+| Set | Letters | Why these, and why here |
+|---|---|---|
+| 1 | S A T P I N | The classic first six: they blend into many real words (sat, tap, pin, nip, tin) |
+| 2 | C K E H R M | Adds the second most useful consonants and a second vowel |
+| 3 | D G O U L F | Completes the short vowels |
+| 4 | B J V W | The remaining common consonants |
+| 5 | Y Z Q X | The awkward ones, left until last |
+
+**X is taught differently.** It is the one letter a child meets at the *end*
+of words, so its whole lesson asks "which one **ends** with /ks/?" — fox, box,
+six. **Q** is taught as /kw/ and **C** and **K** share the sound /k/, because
+that is what they do.
 
 Each letter is a three-step lesson, and every step earns a star:
 
@@ -58,19 +71,34 @@ syllable with a vowel stuck on the end. Both teach letter naming, which is
 exactly what a phonics beginner must not learn first. So the sounds are built
 from raw audio with the Web Audio API instead:
 
-| Sound | How it is made | Measured result |
+| Family | Letters | How it is made |
 |---|---|---|
-| /s/ | white noise through a high band at 6.8 kHz | 98% of energy above 3 kHz, holds for 1.0 s |
-| /a/ | formant synthesis, F1 660 / F2 1720 / F3 2410 | spectral peak at 668 Hz |
-| /i/ | formant synthesis, F1 400 / F2 1980 / F3 2560 | higher F2 energy than /a/, as it must be |
-| /n/ | voiced hum with the mouth resonances damped | 84% of energy below 1 kHz |
-| /t/ | closure silence, then a bright alveolar burst | 27 ms, 92% of energy above 3 kHz |
-| /p/ | closure silence, then a low lippy burst | 17 ms, far darker than /t/ |
+| Voiceless fricatives | s f h | Shaped noise. /s/ is a 6.8 kHz band with 98% of its energy above 3 kHz |
+| Voiced fricatives | z v | The same noise laid over a hum — the hum is the whole difference from /s/ and /f/ |
+| Vowels | a e i o u | Formant synthesis: female-speaker F1/F2/F3 over a 190 Hz glottal source |
+| Nasals | m n | A hum with the mouth resonances damped away; over 80% of energy below 600 Hz |
+| Liquids and glides | l r w y | Voiced resonants. /r/ is defined by its unusually low F3; /w/ and /y/ *glide*, their formants still moving |
+| Voiceless plosives | p t k | Closure silence, then a burst. Nothing after it |
+| Voiced plosives | b d g | A voice bar through the closure plus a 55 ms murmur — enough to hear, too short to become "buh" |
+| Affricate | j | A stop that releases into a fricative |
+| Two sounds joined | x q | /k/+/s/ and /k/+/w/ |
 
 Nothing is glued on after a plosive, so /t/ is `/t/` and not "tuh". Because
 this is generated audio it also does not depend on which voices a device
 happens to have installed. Speech synthesis is still used, at `rate: 0.85`
 and `pitch: 1.2`, but only for Ollie's English sentences.
+
+The voice pitch is deliberately 190 Hz rather than something higher and more
+cartoonish: at 240 Hz the harmonics are spaced too coarsely to resolve F1, and
+/e/ and /i/ came out peaking on the same harmonic — two different vowels that
+sounded the same.
+
+All 25 distinct sounds are checked by rendering each one through an
+`OfflineAudioContext` and measuring it: that every voiced sound carries more
+low-frequency energy than its voiceless twin (b/p, d/t, g/k, v/f, z/s), that
+the vowels' F1s stay in order and their F2s land in the right region, that
+/r/ shows its low F3 against /l/, that the plosives stay short and the
+fricatives stay holdable, and that nothing renders silent.
 
 Tap the big letter (it carries a 🔊 badge) to replay the pure sound as often
 as the child wants, and the 🔊 button on the welcome screen plays a test sound

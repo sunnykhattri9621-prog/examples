@@ -301,6 +301,23 @@
     box-shadow: var(--shadow-sm);
     display: flex; align-items: center; gap: 8px;
   }
+  /* Twenty-six letters at once would overwhelm a beginner, so they are
+     taught in five sets. The numbered dots show which set is open. */
+  .set-bar { display: flex; align-items: center; gap: clamp(10px, 3vw, 20px); margin-top: 10px; flex: none; }
+  .set-bar .btn-round { width: clamp(54px, 11vw, 70px); height: clamp(54px, 11vw, 70px); font-size: clamp(22px, 4.5vw, 30px); }
+  .set-dots { display: flex; gap: clamp(6px, 1.6vw, 10px); }
+  .set-dots button {
+    width: clamp(36px, 7.5vw, 48px); height: clamp(36px, 7.5vw, 48px);
+    border-radius: 50%;
+    font-size: clamp(16px, 3.2vw, 21px); font-weight: 900;
+    background: rgba(255, 255, 255, .82);
+    box-shadow: var(--shadow-sm);
+    display: grid; place-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .set-dots button.on { background: linear-gradient(160deg, #fff0ad, var(--gold)); transform: scale(1.18); }
+  .set-dots button.complete { box-shadow: var(--shadow-sm), 0 0 0 4px var(--grass) inset; }
+
   .letter-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -547,6 +564,12 @@
   </div>
   <div class="bubble" id="mapBubble">Pick a letter to learn!</div>
 
+  <div class="set-bar">
+    <button class="btn-round btn-home" id="setPrev" aria-label="Sounds before these">◀</button>
+    <div class="set-dots" id="setDots"></div>
+    <button class="btn-round btn-home" id="setNext" aria-label="More sounds">▶</button>
+  </div>
+
   <div class="letter-grid" id="letterGrid"></div>
 </section>
 
@@ -655,115 +678,265 @@
    ----------------------------------------------------------------- */
 const CURRICULUM = [
   {
-    letter: 'S',
-    /* how the sound is written on screen */
+    letter: 'S', ph: 's', set: 1,
     display: '/sssss/',
-    /* how the sound is fed to the speech engine so it sounds right */
-    ph: 's',
-    /* only used if Web Audio is missing */
     tts: 'ssssss',
     simile: 'like a sleepy snake',
-    examples: [
-      { pic: '☀️', word: 'Sun',   say: 'Sun'   },
-      { pic: '🐍', word: 'Snake', say: 'Snake' }
-    ],
-    game: {
-      right: { pic: '🧦', word: 'Sock' },
-      wrong: { pic: '🌙', word: 'Moon' }
-    },
-    /* forgiving speech matching for 6-year-old voices */
-    accept: ['s', 'ss', 'sss', 'es', 'ess', 'as', 'ass', 'us', 'hiss', 'yes', 'sun', 'snake', 'sock', 'sorry', 'this', 'sh', 'shh', 'c', 'see', 'sea'],
+    examples: [{ pic: '☀️', word: 'Sun', say: 'Sun' }, { pic: '🐍', word: 'Snake', say: 'Snake' }],
+    game: { right: { pic: '🧦', word: 'Sock' }, wrong: { pic: '🌙', word: 'Moon' } },
+    accept: ['s', 'ss', 'sss', 'es', 'ess', 'as', 'ass', 'us', 'hiss', 'yes', 'sun', 'snake', 'sock', 'this', 'sh', 'shh', 'c', 'see', 'sea'],
     starts: ['s', 'c', 'z', 'ps', 'x']
   },
   {
-    letter: 'A',
+    letter: 'A', ph: 'a', set: 1,
     display: '/aaa/',
-    ph: 'a',
-    /* only used if Web Audio is missing */
     tts: 'aah',
     simile: 'like an ant on your arm',
-    examples: [
-      { pic: '🍎', word: 'Apple', say: 'Apple' },
-      { pic: '🐜', word: 'Ant',   say: 'Ant'   }
-    ],
-    game: {
-      right: { pic: '🐊', word: 'Alligator' },
-      wrong: { pic: '🐶', word: 'Dog' }
-    },
+    examples: [{ pic: '🍎', word: 'Apple', say: 'Apple' }, { pic: '🐜', word: 'Ant', say: 'Ant' }],
+    game: { right: { pic: '🐊', word: 'Alligator' }, wrong: { pic: '🐶', word: 'Dog' } },
     accept: ['a', 'ah', 'aa', 'aah', 'ar', 'uh', 'ha', 'hey', 'eh', 'apple', 'ant', 'and', 'at', 'am', 'alligator', 'aunt', 'are'],
     starts: ['a', 'u', 'o', 'h']
   },
   {
-    letter: 'T',
+    letter: 'T', ph: 't', set: 1,
     display: '/t/ /t/ /t/',
-    ph: 't',
-    /* only used if Web Audio is missing */
     tts: 'tuh',
     simile: 'like a ticking clock',
-    examples: [
-      { pic: '🐯', word: 'Tiger', say: 'Tiger' },
-      { pic: '🌳', word: 'Tree',  say: 'Tree'  }
-    ],
-    game: {
-      right: { pic: '🐢', word: 'Turtle' },
-      wrong: { pic: '🍰', word: 'Cake' }
-    },
+    examples: [{ pic: '🐯', word: 'Tiger', say: 'Tiger' }, { pic: '🌳', word: 'Tree', say: 'Tree' }],
+    game: { right: { pic: '🐢', word: 'Turtle' }, wrong: { pic: '🍰', word: 'Cake' } },
     accept: ['t', 'tt', 'te', 'tea', 'tee', 'ta', 'tuh', 'to', 'too', 'two', 'tie', 'it', 'at', 'tiger', 'tree', 'turtle', 'tick', 'top', 'toy', 'd', 'dee'],
     starts: ['t', 'd']
   },
   {
-    letter: 'P',
+    letter: 'P', ph: 'p', set: 1,
     display: '/p/ /p/ /p/',
-    ph: 'p',
-    /* only used if Web Audio is missing */
     tts: 'puh',
     simile: 'like popping popcorn',
-    examples: [
-      { pic: '🐷', word: 'Pig',   say: 'Pig'   },
-      { pic: '🍕', word: 'Pizza', say: 'Pizza' }
-    ],
-    game: {
-      right: { pic: '🐧', word: 'Penguin' },
-      wrong: { pic: '🚌', word: 'Bus' }
-    },
+    examples: [{ pic: '🐷', word: 'Pig', say: 'Pig' }, { pic: '🍕', word: 'Pizza', say: 'Pizza' }],
+    game: { right: { pic: '🐧', word: 'Penguin' }, wrong: { pic: '🚌', word: 'Bus' } },
     accept: ['p', 'pp', 'pe', 'pea', 'pee', 'pa', 'puh', 'poo', 'pop', 'up', 'pig', 'pizza', 'penguin', 'pen', 'play', 'b', 'bee', 'be'],
     starts: ['p', 'b']
   },
   {
-    letter: 'I',
+    letter: 'I', ph: 'i', set: 1,
     display: '/iii/',
-    ph: 'i',
-    /* only used if Web Audio is missing */
     tts: 'ih',
     simile: 'like an itchy insect',
-    examples: [
-      { pic: '🛖', word: 'Igloo',  say: 'Igloo'  },
-      { pic: '🐛', word: 'Insect', say: 'Insect' }
-    ],
-    game: {
-      right: { pic: '🖋️', word: 'Ink' },
-      wrong: { pic: '🐄', word: 'Cow' }
-    },
+    examples: [{ pic: '🛖', word: 'Igloo', say: 'Igloo' }, { pic: '🐛', word: 'Insect', say: 'Insect' }],
+    game: { right: { pic: '🖋️', word: 'Ink' }, wrong: { pic: '🐄', word: 'Cow' } },
     accept: ['i', 'ih', 'ee', 'eh', 'it', 'in', 'is', 'if', 'ill', 'igloo', 'insect', 'ink', 'itchy', 'eye', 'hi', 'e', 'a'],
     starts: ['i', 'e', 'y', 'h']
   },
   {
-    letter: 'N',
+    letter: 'N', ph: 'n', set: 1,
     display: '/nnn/',
-    ph: 'n',
-    /* only used if Web Audio is missing */
     tts: 'nnnn',
     simile: 'like a humming nose',
-    examples: [
-      { pic: '🪺', word: 'Nest', say: 'Nest' },
-      { pic: '👃', word: 'Nose', say: 'Nose' }
-    ],
-    game: {
-      right: { pic: '🥜', word: 'Nut' },
-      wrong: { pic: '🐱', word: 'Cat' }
-    },
+    examples: [{ pic: '🪺', word: 'Nest', say: 'Nest' }, { pic: '👃', word: 'Nose', say: 'Nose' }],
+    game: { right: { pic: '🥜', word: 'Nut' }, wrong: { pic: '🐱', word: 'Cat' } },
     accept: ['n', 'nn', 'en', 'an', 'in', 'on', 'un', 'no', 'know', 'now', 'nest', 'nose', 'nut', 'nine', 'hmm', 'mm', 'm', 'em'],
     starts: ['n', 'm', 'k']
+  },
+  {
+    letter: 'C', ph: 'k', set: 2,
+    display: '/k/ /k/ /k/',
+    tts: 'cuh',
+    simile: 'like a clicking camera',
+    examples: [{ pic: '🐱', word: 'Cat', say: 'Cat' }, { pic: '🚗', word: 'Car', say: 'Car' }],
+    game: { right: { pic: '🍰', word: 'Cake' }, wrong: { pic: '🐟', word: 'Fish' } },
+    accept: ['c', 'k', 'kuh', 'cuh', 'key', 'see', 'sea', 'ka', 'cat', 'car', 'cake', 'cup', 'cook', 'kick', 'queue'],
+    starts: ['c', 'k', 'g', 'q']
+  },
+  {
+    letter: 'K', ph: 'k', set: 2,
+    display: '/k/ /k/ /k/',
+    tts: 'kuh',
+    simile: 'like a kicking kangaroo',
+    examples: [{ pic: '🪁', word: 'Kite', say: 'Kite' }, { pic: '🔑', word: 'Key', say: 'Key' }],
+    game: { right: { pic: '🦘', word: 'Kangaroo' }, wrong: { pic: '🐷', word: 'Pig' } },
+    accept: ['k', 'c', 'kuh', 'cuh', 'key', 'ka', 'kay', 'kite', 'king', 'kangaroo', 'kick', 'cat', 'queue'],
+    starts: ['k', 'c', 'g', 'q']
+  },
+  {
+    letter: 'E', ph: 'e', set: 2,
+    display: '/eee/',
+    tts: 'eh',
+    simile: 'like an egg cracking open',
+    examples: [{ pic: '🥚', word: 'Egg', say: 'Egg' }, { pic: '🐘', word: 'Elephant', say: 'Elephant' }],
+    game: { right: { pic: '🧝', word: 'Elf' }, wrong: { pic: '🌙', word: 'Moon' } },
+    accept: ['e', 'eh', 'ay', 'ed', 'egg', 'elephant', 'elf', 'end', 'every', 'red', 'bed', 'a', 'air'],
+    starts: ['e', 'a', 'i']
+  },
+  {
+    letter: 'H', ph: 'h', set: 2,
+    display: '/h/ /h/ /h/',
+    tts: 'huh',
+    simile: 'like a puppy panting',
+    examples: [{ pic: '🎩', word: 'Hat', say: 'Hat' }, { pic: '🏠', word: 'House', say: 'House' }],
+    game: { right: { pic: '🐴', word: 'Horse' }, wrong: { pic: '🌳', word: 'Tree' } },
+    accept: ['h', 'ha', 'huh', 'hu', 'hey', 'ah', 'aitch', 'hat', 'house', 'horse', 'hi', 'happy', 'hot'],
+    starts: ['h', 'a', 'e']
+  },
+  {
+    letter: 'R', ph: 'r', set: 2,
+    display: '/rrr/',
+    tts: 'rrrr',
+    simile: 'like a roaring race car',
+    examples: [{ pic: '🌈', word: 'Rainbow', say: 'Rainbow' }, { pic: '🐰', word: 'Rabbit', say: 'Rabbit' }],
+    game: { right: { pic: '🤖', word: 'Robot' }, wrong: { pic: '🍰', word: 'Cake' } },
+    accept: ['r', 'rr', 'rrr', 'ar', 'are', 'err', 'er', 'ra', 'rabbit', 'rainbow', 'robot', 'red', 'run', 'right'],
+    starts: ['r', 'w', 'a']
+  },
+  {
+    letter: 'M', ph: 'm', set: 2,
+    display: '/mmm/',
+    tts: 'mmmm',
+    simile: 'like yummy food',
+    examples: [{ pic: '🌙', word: 'Moon', say: 'Moon' }, { pic: '🐭', word: 'Mouse', say: 'Mouse' }],
+    game: { right: { pic: '🥛', word: 'Milk' }, wrong: { pic: '🐶', word: 'Dog' } },
+    accept: ['m', 'mm', 'mmm', 'em', 'um', 'hmm', 'hm', 'ma', 'moon', 'mouse', 'milk', 'mum', 'mom', 'me', 'my', 'n', 'en'],
+    starts: ['m', 'n', 'h']
+  },
+  {
+    letter: 'D', ph: 'd', set: 3,
+    display: '/d/ /d/ /d/',
+    tts: 'duh',
+    simile: 'like a banging drum',
+    examples: [{ pic: '🐶', word: 'Dog', say: 'Dog' }, { pic: '🦆', word: 'Duck', say: 'Duck' }],
+    game: { right: { pic: '🚪', word: 'Door' }, wrong: { pic: '🐱', word: 'Cat' } },
+    accept: ['d', 'dd', 'duh', 'dee', 'de', 'the', 'da', 'dog', 'duck', 'door', 'dad', 'do', 'down', 't', 'tea'],
+    starts: ['d', 't']
+  },
+  {
+    letter: 'G', ph: 'g', set: 3,
+    display: '/g/ /g/ /g/',
+    tts: 'guh',
+    simile: 'like glugging water',
+    examples: [{ pic: '🐐', word: 'Goat', say: 'Goat' }, { pic: '🍇', word: 'Grapes', say: 'Grapes' }],
+    game: { right: { pic: '🎸', word: 'Guitar' }, wrong: { pic: '☀️', word: 'Sun' } },
+    accept: ['g', 'gg', 'guh', 'gee', 'ga', 'go', 'goat', 'grapes', 'guitar', 'girl', 'good', 'k', 'key'],
+    starts: ['g', 'k', 'c']
+  },
+  {
+    letter: 'O', ph: 'o', set: 3,
+    display: '/ooo/',
+    tts: 'oh',
+    simile: 'like an octopus saying ock',
+    examples: [{ pic: '🐙', word: 'Octopus', say: 'Octopus' }, { pic: '🍊', word: 'Orange', say: 'Orange' }],
+    game: { right: { pic: '🦦', word: 'Otter' }, wrong: { pic: '🐝', word: 'Bee' } },
+    accept: ['o', 'oh', 'ah', 'aw', 'on', 'off', 'ox', 'octopus', 'orange', 'otter', 'odd', 'hot', 'a'],
+    starts: ['o', 'a', 'u', 'h']
+  },
+  {
+    letter: 'U', ph: 'u', set: 3,
+    display: '/uuu/',
+    tts: 'uh',
+    simile: 'like an umbrella going up',
+    examples: [{ pic: '☂️', word: 'Umbrella', say: 'Umbrella' }, { pic: '⬆️', word: 'Up', say: 'Up' }],
+    game: { right: { pic: '🩲', word: 'Underwear' }, wrong: { pic: '🐟', word: 'Fish' } },
+    accept: ['u', 'uh', 'ah', 'up', 'us', 'under', 'umbrella', 'underwear', 'ugly', 'uncle', 'a', 'you'],
+    starts: ['u', 'a', 'o', 'h']
+  },
+  {
+    letter: 'L', ph: 'l', set: 3,
+    display: '/lll/',
+    tts: 'llll',
+    simile: 'like a lion licking a lolly',
+    examples: [{ pic: '🦁', word: 'Lion', say: 'Lion' }, { pic: '🍃', word: 'Leaf', say: 'Leaf' }],
+    game: { right: { pic: '🍋', word: 'Lemon' }, wrong: { pic: '🐦', word: 'Bird' } },
+    accept: ['l', 'll', 'el', 'ell', 'la', 'luh', 'lion', 'leaf', 'lemon', 'love', 'look', 'little', 'hello'],
+    starts: ['l', 'r', 'e']
+  },
+  {
+    letter: 'F', ph: 'f', set: 3,
+    display: '/fff/',
+    tts: 'ffff',
+    simile: 'like a fan blowing air',
+    examples: [{ pic: '🐟', word: 'Fish', say: 'Fish' }, { pic: '🌸', word: 'Flower', say: 'Flower' }],
+    game: { right: { pic: '🐸', word: 'Frog' }, wrong: { pic: '🌙', word: 'Moon' } },
+    accept: ['f', 'ff', 'ef', 'eff', 'fuh', 'fa', 'fish', 'flower', 'frog', 'fun', 'four', 'off', 'v'],
+    starts: ['f', 'v', 's', 'e']
+  },
+  {
+    letter: 'B', ph: 'b', set: 4,
+    display: '/b/ /b/ /b/',
+    tts: 'buh',
+    simile: 'like a bouncing ball',
+    examples: [{ pic: '⚽', word: 'Ball', say: 'Ball' }, { pic: '🐻', word: 'Bear', say: 'Bear' }],
+    game: { right: { pic: '🍌', word: 'Banana' }, wrong: { pic: '🌳', word: 'Tree' } },
+    accept: ['b', 'bb', 'buh', 'bee', 'be', 'ba', 'ball', 'bear', 'banana', 'boy', 'big', 'bus', 'p', 'pea'],
+    starts: ['b', 'p', 'v']
+  },
+  {
+    letter: 'J', ph: 'j', set: 4,
+    display: '/j/ /j/ /j/',
+    tts: 'juh',
+    simile: 'like wobbly jelly',
+    examples: [{ pic: '🧃', word: 'Juice', say: 'Juice' }, { pic: '🧥', word: 'Jacket', say: 'Jacket' }],
+    game: { right: { pic: '✈️', word: 'Jet' }, wrong: { pic: '🐻', word: 'Bear' } },
+    accept: ['j', 'juh', 'jay', 'jee', 'jah', 'jelly', 'juice', 'jacket', 'jet', 'jump', 'joy', 'g', 'gee'],
+    starts: ['j', 'g', 'd']
+  },
+  {
+    letter: 'V', ph: 'v', set: 4,
+    display: '/vvv/',
+    tts: 'vvvv',
+    simile: 'like a van going vroom',
+    examples: [{ pic: '🚐', word: 'Van', say: 'Van' }, { pic: '🎻', word: 'Violin', say: 'Violin' }],
+    game: { right: { pic: '🌋', word: 'Volcano' }, wrong: { pic: '🦆', word: 'Duck' } },
+    accept: ['v', 'vv', 'vuh', 'vee', 've', 'va', 'van', 'violin', 'volcano', 'very', 'vroom', 'f', 'b'],
+    starts: ['v', 'f', 'b', 'w']
+  },
+  {
+    letter: 'W', ph: 'w', set: 4,
+    display: '/www/',
+    tts: 'wuh',
+    simile: 'like the wind blowing',
+    examples: [{ pic: '💧', word: 'Water', say: 'Water' }, { pic: '⌚', word: 'Watch', say: 'Watch' }],
+    game: { right: { pic: '🐳', word: 'Whale' }, wrong: { pic: '🍎', word: 'Apple' } },
+    accept: ['w', 'wuh', 'wa', 'we', 'why', 'one', 'won', 'water', 'watch', 'whale', 'wind', 'double u', 'r', 'o'],
+    starts: ['w', 'r', 'o', 'u']
+  },
+  {
+    letter: 'Y', ph: 'y', set: 5,
+    display: '/y/ /y/ /y/',
+    tts: 'yuh',
+    simile: 'like a yawning yo-yo',
+    examples: [{ pic: '🪀', word: 'Yo-yo', say: 'Yo-yo' }, { pic: '💛', word: 'Yellow', say: 'Yellow' }],
+    game: { right: { pic: '🧶', word: 'Yarn' }, wrong: { pic: '🚗', word: 'Car' } },
+    accept: ['y', 'yuh', 'ya', 'yeah', 'yes', 'yay', 'why', 'yo yo', 'yoyo', 'yellow', 'yarn', 'you', 'e', 'i'],
+    starts: ['y', 'e', 'i', 'w']
+  },
+  {
+    letter: 'Z', ph: 'z', set: 5,
+    display: '/zzz/',
+    tts: 'zzzz',
+    simile: 'like a buzzing bee',
+    examples: [{ pic: '🦓', word: 'Zebra', say: 'Zebra' }, { pic: '0️⃣', word: 'Zero', say: 'Zero' }],
+    game: { right: { pic: '💤', word: 'Zzz' }, wrong: { pic: '🐷', word: 'Pig' } },
+    accept: ['z', 'zz', 'zzz', 'zed', 'zee', 'za', 'buzz', 'zebra', 'zero', 'zip', 'zoo', 's', 'es'],
+    starts: ['z', 's', 'x']
+  },
+  {
+    letter: 'Q', ph: 'q', set: 5,
+    display: '/kw/',
+    tts: 'kwuh',
+    simile: 'like a quacking duck',
+    examples: [{ pic: '👑', word: 'Queen', say: 'Queen' }, { pic: '❓', word: 'Question', say: 'Question' }],
+    game: { right: { pic: '🤫', word: 'Quiet' }, wrong: { pic: '🐻', word: 'Bear' } },
+    accept: ['q', 'qu', 'kw', 'cue', 'queue', 'kew', 'quack', 'queen', 'question', 'quiet', 'quick', 'k', 'c'],
+    starts: ['q', 'k', 'c', 'w']
+  },
+  {
+    letter: 'X', ph: 'x', set: 5,
+    final: true,
+    display: '/ks/',
+    tts: 'ks',
+    simile: 'at the END of words, like fox',
+    examples: [{ pic: '🦊', word: 'Fox', say: 'Fox' }, { pic: '📦', word: 'Box', say: 'Box' }],
+    game: { right: { pic: '6️⃣', word: 'Six' }, wrong: { pic: '🐶', word: 'Dog' } },
+    accept: ['x', 'ks', 'ex', 'eks', 'box', 'fox', 'six', 'socks', 'mix', 'fix'],
+    starts: ['x', 'e']
   }
 ];
 
@@ -870,12 +1043,56 @@ const sfx = {
    depend on which voices a device happens to have installed.
    ----------------------------------------------------------------- */
 const PHONEMES = {
+  /* --- voiceless fricatives: shaped noise, no voicing --- */
   s: { kind: 'fricative', hp: 4200, band: 6800, q: 2.2,  dur: 1.05, vol: 0.24 },
-  a: { kind: 'vowel',  f0: 235, dur: 0.90, vol: 0.55, formants: [[660, 8, 1], [1720, 10, 0.55], [2410, 12, 0.20]] },
-  i: { kind: 'vowel',  f0: 245, dur: 0.90, vol: 0.86, formants: [[400, 10, 1], [1980, 11, 0.70], [2560, 13, 0.22]] },
-  n: { kind: 'nasal',  f0: 225, dur: 0.95, vol: 0.82, lp: 1700, formants: [[260, 9, 1], [1000, 8, 0.14], [2300, 12, 0.05]] },
+  f: { kind: 'fricative', hp: 1100, band: 4500, q: 0.7,  dur: 0.95, vol: 0.30 },
+  h: { kind: 'fricative', hp: 400,  band: 1500, q: 0.6,  dur: 0.60, vol: 0.26 },
+
+  /* --- voiced fricatives: the same noise over a hum --- */
+  z: { kind: 'buzz', hp: 3400, band: 5400, q: 2.0, noiseVol: 0.16, f0: 190, voiceVol: 0.40, voiceLp: 500, dur: 0.95 },
+  v: { kind: 'buzz', hp: 800,  band: 2600, q: 0.8, noiseVol: 0.11, f0: 190, voiceVol: 0.48, voiceLp: 800, dur: 0.95 },
+
+  /* --- vowels: three resonances over a buzzy glottal source --- */
+  /* Formants are the female-speaker values for each short vowel. The voice
+     pitch is 190 Hz rather than higher: harmonics every 190 Hz resolve F1
+     clearly, where a 240 Hz pitch left /e/ and /i/ peaking on the same
+     harmonic and sounding like the same vowel. */
+  a: { kind: 'vowel', f0: 190, dur: 0.90, vol: 0.55, formants: [[850, 8, 1], [2050, 10, 0.50], [2850, 12, 0.16]] },
+  e: { kind: 'vowel', f0: 190, dur: 0.90, vol: 0.60, formants: [[600, 9, 1], [2100, 10, 0.55], [2900, 12, 0.16]] },
+  i: { kind: 'vowel', f0: 190, dur: 0.90, vol: 0.72, formants: [[430, 10, 1], [2350, 11, 0.60], [3000, 13, 0.18]] },
+  o: { kind: 'vowel', f0: 190, dur: 0.90, vol: 0.58, formants: [[590, 8, 1], [920, 9, 0.80], [2700, 12, 0.12]] },
+  u: { kind: 'vowel', f0: 190, dur: 0.90, vol: 0.58, formants: [[760, 8, 1], [1400, 10, 0.60], [2700, 12, 0.15]] },
+
+  /* --- nasals: a hum with the mouth resonances damped away --- */
+  n: { kind: 'nasal', f0: 190, dur: 0.95, vol: 0.82, lp: 1700, formants: [[260, 9, 1], [1000, 8, 0.14], [2300, 12, 0.05]] },
+  m: { kind: 'nasal', f0: 190, dur: 0.95, vol: 0.90, lp: 1300, formants: [[250, 9, 1], [900, 8, 0.12], [2200, 12, 0.04]] },
+
+  /* --- liquids: voiced, vowel-like. /r/ is defined by its very low F3 --- */
+  l: { kind: 'vowel', f0: 190, dur: 0.90, vol: 0.72, formants: [[400, 9, 1], [1200, 10, 0.50], [2900, 12, 0.14]] },
+  r: { kind: 'vowel', f0: 190, dur: 0.90, vol: 0.70, formants: [[480, 8, 1], [1350, 9, 0.60], [1700, 10, 0.55]] },
+
+  /* --- glides: a vowel whose formants are still moving (4th value = target) --- */
+  w: { kind: 'vowel', f0: 190, dur: 0.85, vol: 0.78, formants: [[300, 9, 1, 500], [610, 9, 0.75, 1000], [2200, 12, 0.10, 2400]] },
+  y: { kind: 'vowel', f0: 190, dur: 0.85, vol: 0.80, formants: [[300, 10, 1, 450], [2400, 11, 0.75, 1900], [3000, 13, 0.20, 2600]] },
+
+  /* --- voiceless plosives: closure silence, then a burst, no vowel after --- */
   t: { kind: 'plosive', hp: 3000, band: 4300, q: 1.4, closure: 0.05, burst: 0.014, aspiration: 0.055, vol: 0.36 },
-  p: { kind: 'plosive', hp: 250,  band: 900,  q: 1.1, closure: 0.05, burst: 0.012, aspiration: 0.028, vol: 0.78 }
+  p: { kind: 'plosive', hp: 250,  band: 900,  q: 1.1, closure: 0.05, burst: 0.012, aspiration: 0.028, vol: 0.78 },
+  k: { kind: 'plosive', hp: 1100, band: 1900, q: 1.6, closure: 0.05, burst: 0.015, aspiration: 0.050, vol: 0.60 },
+
+  /* --- voiced plosives: a voice bar through the closure and a very short
+         voiced murmur after the burst. The murmur is kept to 55 ms so the
+         sound stays /b/ rather than drifting into "buh". --- */
+  b: { kind: 'plosive', voiced: true, hp: 180,  band: 700,  q: 1.1, closure: 0.06, burst: 0.012, aspiration: 0.012, vol: 0.85, murmur: [[400, 8, 1], [1000, 9, 0.35]] },
+  d: { kind: 'plosive', voiced: true, hp: 1800, band: 3000, q: 1.4, closure: 0.06, burst: 0.012, aspiration: 0.016, vol: 0.50, murmur: [[400, 8, 1], [1700, 9, 0.35]] },
+  g: { kind: 'plosive', voiced: true, hp: 900,  band: 1700, q: 1.5, closure: 0.06, burst: 0.014, aspiration: 0.022, vol: 0.60, murmur: [[400, 8, 1], [1300, 9, 0.35]] },
+
+  /* --- affricate: a stop that releases into a fricative --- */
+  j: { kind: 'affricate', hp: 1400, band: 2800, q: 1.5, closure: 0.06, dur: 0.16, vol: 0.34, f0: 190, voiceVol: 0.30 },
+
+  /* --- letters that are two sounds joined --- */
+  x: { kind: 'sequence', parts: ['k', 's'], gap: 0.02 },
+  q: { kind: 'sequence', parts: ['k', 'w'], gap: 0.02 }
 };
 
 let noiseBuf = null;
@@ -898,68 +1115,97 @@ function stopPhonemes() {
   liveNodes = [];
 }
 
-/* A buzzy glottal source, shaped by parallel formant bands. */
-function schedVoiced(ctx, dest, spec, t0) {
-  const dur = spec.dur;
+/* Shared noise chain: white noise through a high-pass and a resonant band. */
+function noiseChain(ctx, spec) {
+  const src = track(ctx.createBufferSource());
+  src.buffer = noiseBuffer(ctx);
+  src.loop = true;
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = spec.hp;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = spec.band; bp.Q.value = spec.q;
+  src.connect(hp); hp.connect(bp);
+  return { src: src, out: bp };
+}
+
+/* Shared voiced chain: a sawtooth glottal source through parallel formants.
+   A formant may carry a 4th value, the frequency it glides to — that motion
+   is what makes /w/ and /y/ glides rather than vowels. */
+function voicedChain(ctx, f0, formants, t0, dur) {
   const osc = track(ctx.createOscillator());
   osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(spec.f0, t0);
-  osc.frequency.linearRampToValueAtTime(spec.f0 * 0.88, t0 + dur);
-
+  osc.frequency.setValueAtTime(f0, t0);
+  osc.frequency.linearRampToValueAtTime(f0 * 0.88, t0 + dur);
   const sum = ctx.createGain();
   sum.gain.value = 1;
-  spec.formants.forEach(([freq, q, gain]) => {
+  formants.forEach(([freq, q, gain, glideTo]) => {
     const bp = ctx.createBiquadFilter();
     bp.type = 'bandpass';
-    bp.frequency.value = freq;
     bp.Q.value = q;
+    bp.frequency.setValueAtTime(freq, t0);
+    if (glideTo) bp.frequency.linearRampToValueAtTime(glideTo, t0 + dur * 0.75);
     const g = ctx.createGain();
     g.gain.value = gain;
     osc.connect(bp); bp.connect(g); g.connect(sum);
   });
+  return { osc: osc, out: sum };
+}
 
-  let chain = sum;
+/* One envelope shape for every held sound: ease in, hold, ease out. */
+function holdEnvelope(ctx, vol, t0, dur) {
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.linearRampToValueAtTime(vol, t0 + Math.min(0.09, dur * 0.15));
+  env.gain.setValueAtTime(vol, t0 + dur - Math.min(0.16, dur * 0.25));
+  env.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+  return env;
+}
+
+function schedVoiced(ctx, dest, spec, t0) {
+  const dur = spec.dur;
+  const voice = voicedChain(ctx, spec.f0, spec.formants, t0, dur);
+  let chain = voice.out;
   if (spec.lp) {                       /* nasals lose their high end */
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.value = spec.lp;
-    sum.connect(lp);
+    voice.out.connect(lp);
     chain = lp;
   }
-
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, t0);
-  env.gain.linearRampToValueAtTime(spec.vol, t0 + 0.07);
-  env.gain.setValueAtTime(spec.vol, t0 + dur - 0.14);
-  env.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+  const env = holdEnvelope(ctx, spec.vol, t0, dur);
   chain.connect(env); env.connect(dest);
-
-  osc.start(t0);
-  osc.stop(t0 + dur + 0.02);
+  voice.osc.start(t0);
+  voice.osc.stop(t0 + dur + 0.02);
   return dur;
 }
 
 /* Held noise — a hiss the child can copy for as long as they like. */
 function schedFricative(ctx, dest, spec, t0) {
   const dur = spec.dur;
-  const src = track(ctx.createBufferSource());
-  src.buffer = noiseBuffer(ctx);
-  src.loop = true;
+  const noise = noiseChain(ctx, spec);
+  const env = holdEnvelope(ctx, spec.vol, t0, dur);
+  noise.out.connect(env); env.connect(dest);
+  noise.src.start(t0);
+  noise.src.stop(t0 + dur + 0.02);
+  return dur;
+}
 
-  const hp = ctx.createBiquadFilter();
-  hp.type = 'highpass'; hp.frequency.value = spec.hp;
-  const bp = ctx.createBiquadFilter();
-  bp.type = 'bandpass'; bp.frequency.value = spec.band; bp.Q.value = spec.q;
+/* A hiss and a hum at the same time: that is what makes /z/ not /s/. */
+function schedBuzz(ctx, dest, spec, t0) {
+  const dur = spec.dur;
+  const noise = noiseChain(ctx, spec);
+  const nEnv = holdEnvelope(ctx, spec.noiseVol, t0, dur);
+  noise.out.connect(nEnv); nEnv.connect(dest);
+  noise.src.start(t0);
+  noise.src.stop(t0 + dur + 0.02);
 
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, t0);
-  env.gain.linearRampToValueAtTime(spec.vol, t0 + 0.09);
-  env.gain.setValueAtTime(spec.vol, t0 + dur - 0.16);
-  env.gain.linearRampToValueAtTime(0.0001, t0 + dur);
-
-  src.connect(hp); hp.connect(bp); bp.connect(env); env.connect(dest);
-  src.start(t0);
-  src.stop(t0 + dur + 0.02);
+  const voice = voicedChain(ctx, spec.f0, [[spec.f0, 6, 1]], t0, dur);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = spec.voiceLp;
+  const vEnv = holdEnvelope(ctx, spec.voiceVol, t0, dur);
+  voice.out.connect(lp); lp.connect(vEnv); vEnv.connect(dest);
+  voice.osc.start(t0);
+  voice.osc.stop(t0 + dur + 0.02);
   return dur;
 }
 
@@ -967,33 +1213,97 @@ function schedFricative(ctx, dest, spec, t0) {
 function schedPlosive(ctx, dest, spec, t0) {
   const start = t0 + spec.closure;
   const tail = spec.burst + spec.aspiration;
-  const src = track(ctx.createBufferSource());
-  src.buffer = noiseBuffer(ctx);
-  src.loop = true;
-
-  const hp = ctx.createBiquadFilter();
-  hp.type = 'highpass'; hp.frequency.value = spec.hp;
-  const bp = ctx.createBiquadFilter();
-  bp.type = 'bandpass'; bp.frequency.value = spec.band; bp.Q.value = spec.q;
-
+  const noise = noiseChain(ctx, spec);
   const env = ctx.createGain();
   env.gain.setValueAtTime(0.0001, start);
   env.gain.linearRampToValueAtTime(spec.vol, start + 0.003);
   env.gain.linearRampToValueAtTime(spec.vol * 0.35, start + spec.burst);
   env.gain.exponentialRampToValueAtTime(0.0001, start + tail);
+  noise.out.connect(env); env.connect(dest);
+  noise.src.start(start);
+  noise.src.stop(start + tail + 0.02);
 
-  src.connect(hp); hp.connect(bp); bp.connect(env); env.connect(dest);
-  src.start(start);
-  src.stop(start + tail + 0.02);
-  return spec.closure + tail;
+  let total = spec.closure + tail;
+  if (spec.voiced) {
+    /* Voice bar: the low buzz of the vocal folds during the closure. It is
+       the only thing separating /b/ from /p/ and /d/ from /t/. */
+    const bar = track(ctx.createOscillator());
+    bar.type = 'sine';
+    bar.frequency.value = 110;
+    const bg = ctx.createGain();
+    bg.gain.setValueAtTime(0.0001, t0);
+    bg.gain.linearRampToValueAtTime(0.10, t0 + 0.015);
+    bg.gain.setValueAtTime(0.10, start);
+    bg.gain.linearRampToValueAtTime(0.0001, start + 0.012);
+    bar.connect(bg); bg.connect(dest);
+    bar.start(t0);
+    bar.stop(start + 0.04);
+
+    /* A 55 ms voiced murmur so the release is audible without becoming
+       a syllable. */
+    const mDur = 0.055;
+    const mStart = start + spec.burst;
+    const murmur = voicedChain(ctx, 190, spec.murmur, mStart, mDur);
+    const mEnv = ctx.createGain();
+    mEnv.gain.setValueAtTime(0.0001, mStart);
+    mEnv.gain.linearRampToValueAtTime(0.42, mStart + 0.012);
+    mEnv.gain.exponentialRampToValueAtTime(0.0001, mStart + mDur);
+    murmur.out.connect(mEnv); mEnv.connect(dest);
+    murmur.osc.start(mStart);
+    murmur.osc.stop(mStart + mDur + 0.02);
+    total = Math.max(total, mStart - t0 + mDur);
+  }
+  return total;
+}
+
+/* A stop that releases into a fricative, which is what /j/ is. */
+function schedAffricate(ctx, dest, spec, t0) {
+  const start = t0 + spec.closure;
+  const dur = spec.dur;
+  const noise = noiseChain(ctx, spec);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.linearRampToValueAtTime(spec.vol, start + 0.012);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  noise.out.connect(env); env.connect(dest);
+  noise.src.start(start);
+  noise.src.stop(start + dur + 0.02);
+
+  const voice = voicedChain(ctx, spec.f0, [[spec.f0, 6, 1]], start, dur);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 700;
+  const vEnv = ctx.createGain();
+  vEnv.gain.setValueAtTime(0.0001, start);
+  vEnv.gain.linearRampToValueAtTime(spec.voiceVol, start + 0.015);
+  vEnv.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  voice.out.connect(lp); lp.connect(vEnv); vEnv.connect(dest);
+  voice.osc.start(start);
+  voice.osc.stop(start + dur + 0.02);
+  return spec.closure + dur;
+}
+
+/* x is /k/ + /s/ and q is /k/ + /w/: two sounds run together. */
+function schedSequence(ctx, dest, spec, t0) {
+  let t = t0, total = 0;
+  spec.parts.forEach(key => {
+    const d = schedulePhoneme(ctx, dest, key, t);
+    t += d + spec.gap;
+    total += d + spec.gap;
+  });
+  return total;
 }
 
 function schedulePhoneme(ctx, dest, key, t0) {
   const spec = PHONEMES[key];
   if (!spec) return 0;
-  if (spec.kind === 'fricative') return schedFricative(ctx, dest, spec, t0);
-  if (spec.kind === 'plosive')   return schedPlosive(ctx, dest, spec, t0);
-  return schedVoiced(ctx, dest, spec, t0);
+  switch (spec.kind) {
+    case 'fricative': return schedFricative(ctx, dest, spec, t0);
+    case 'buzz':      return schedBuzz(ctx, dest, spec, t0);
+    case 'plosive':   return schedPlosive(ctx, dest, spec, t0);
+    case 'affricate': return schedAffricate(ctx, dest, spec, t0);
+    case 'sequence':  return schedSequence(ctx, dest, spec, t0);
+    default:          return schedVoiced(ctx, dest, spec, t0);
+  }
 }
 
 /** Play a pure sound, optionally repeated: /t/ /t/ /t/. */
@@ -1322,6 +1632,9 @@ const el = {
   startBtn:    $('#startBtn'),
   grownupNote: $('#grownupNote'),
   letterGrid:  $('#letterGrid'),
+  setDots:     $('#setDots'),
+  setPrev:     $('#setPrev'),
+  setNext:     $('#setNext'),
   starTotal:   $('#starTotal'),
   mapBubble:   $('#mapBubble'),
   mapHearBtn:  $('#mapHearBtn'),
@@ -1348,6 +1661,10 @@ function showHeard(text) {
   el.heard.classList.add('show');
 }
 function clearHeard() { el.heard.textContent = ''; el.heard.classList.remove('show'); }
+
+/* X is the one letter taught at the end of words (fox, box, six), so its
+   whole lesson asks "ends with" instead of "starts with". */
+function soundPhrase(lesson) { return lesson.final ? 'ends with' : 'starts with'; }
 
 function tokenHtml(lesson) {
   return '<span class="sound-token">' + lesson.display + '</span>';
@@ -1435,7 +1752,7 @@ async function stepDiscovery(token) {
       stopSpeaking();
       await say([
         { t: t.dataset.say },
-        { t: t.dataset.say + ' starts with' },
+        { t: t.dataset.say + ' ' + soundPhrase(L) },
         { ph: L.ph }
       ]);
     });
@@ -1449,9 +1766,9 @@ async function stepDiscovery(token) {
     { t: 'The letter ' + L.letter + ' makes the sound', gap: 120 },
     ...soundScript(L, 3),
     { t: L.simile + '!', gap: 250 },
-    { t: L.examples[0].say + ' starts with', gap: 80 },
+    { t: L.examples[0].say + ' ' + soundPhrase(L), gap: 80 },
     { ph: L.ph, gap: 200 },
-    { t: L.examples[1].say + ' starts with', gap: 80 },
+    { t: L.examples[1].say + ' ' + soundPhrase(L), gap: 80 },
     { ph: L.ph, gap: 200 },
     { t: 'Tap a picture to hear it again, or tap the yellow arrow to keep going!' }
   ]);
@@ -1574,13 +1891,13 @@ async function stepGame(token, isRetry) {
       ).join('') +
     '</div>'
   );
-  setBubble('Which picture starts with ' + tokenHtml(L) + '? Tap it! 👆');
+  setBubble('Which picture ' + soundPhrase(L) + ' ' + tokenHtml(L) + '? Tap it! 👆');
   $$('.tile', el.stageContent).forEach(t => t.addEventListener('click', () => onGameTap(token, t)));
 
   replay = () => {
     stopSpeaking();
     return say([
-      { t: 'Which one starts with', gap: 100 },
+      { t: 'Which one ' + soundPhrase(L), gap: 100 },
       ...soundScript(L, 2),
       { t: options[0].word + ', or ' + options[1].word + '?' }
     ]);
@@ -1589,7 +1906,7 @@ async function stepGame(token, isRetry) {
   const intro = isRetry ? [] : [{ t: 'Now let us play a game!', gap: 200 }];
   await say([
     ...intro,
-    { t: 'Which one starts with', gap: 100 },
+    { t: 'Which one ' + soundPhrase(L), gap: 100 },
     ...soundScript(L, 2),
     { t: options[0].word + ', or ' + options[1].word + '?', gap: 150 },
     { t: 'Tap the picture!' }
@@ -1608,12 +1925,12 @@ async function onGameTap(token, tile) {
     tile.classList.add('correct');
     sfx.cheer();
     confetti(34);
-    setBubble('🎉 Yes! <b>' + tile.dataset.word + '</b> starts with ' + tokenHtml(L) + '!');
+    setBubble('🎉 Yes! <b>' + tile.dataset.word + '</b> ' + soundPhrase(L) + ' ' + tokenHtml(L) + '!');
     await awardStar(tile);
     if (!alive(token)) { gameLocked = false; return; }
     await say([
       { t: pick(PRAISE), gap: 120 },
-      { t: tile.dataset.word + ' starts with', gap: 80 },
+      { t: tile.dataset.word + ' ' + soundPhrase(L), gap: 80 },
       { ph: L.ph }
     ]);
     if (!alive(token)) { gameLocked = false; return; }
@@ -1628,7 +1945,7 @@ async function onGameTap(token, tile) {
        interrupt him, never be swallowed. */
     gameLocked = false;
     await say([
-      { t: 'Great try! ' + tile.dataset.word + ' starts with a different sound.', gap: 150 },
+      { t: 'Great try! ' + tile.dataset.word + ' ' + soundPhrase(L) + ' a different sound.', gap: 150 },
       { t: 'We are looking for', gap: 80 },
       ...soundScript(L, 3),
       { t: 'Have another go — you can do it!' }
@@ -1699,12 +2016,41 @@ async function advance() {
 /* -----------------------------------------------------------------
    12. MAP SCREEN
    ----------------------------------------------------------------- */
+const SETS = CURRICULUM.reduce((acc, l) => acc.includes(l.set) ? acc : acc.concat(l.set), []);
+let currentSet = SETS[0];
+
+function lettersInSet(n) { return CURRICULUM.filter(l => l.set === n); }
+function setIsComplete(n) { return lettersInSet(n).every(l => (progress[l.letter] || 0) >= 3); }
+
+/** Open the set holding the first letter that still has stars to win. */
+function firstUnfinishedSet() {
+  const next = CURRICULUM.find(l => (progress[l.letter] || 0) < 3);
+  return next ? next.set : SETS[0];
+}
+
+function renderSetDots() {
+  el.setDots.innerHTML = SETS.map(n =>
+    '<button data-set="' + n + '" aria-label="Sound set ' + n + '" class="' +
+      (n === currentSet ? 'on ' : '') + (setIsComplete(n) ? 'complete' : '') + '">' + n + '</button>'
+  ).join('');
+  $$('button', el.setDots).forEach(b => {
+    b.addEventListener('click', () => { sfx.tap(); goToSet(Number(b.dataset.set)); });
+  });
+}
+
+function goToSet(n) {
+  if (!SETS.includes(n)) return;
+  currentSet = n;
+  renderMap();
+}
+
 function renderMap() {
   el.starTotal.textContent = totalStars();
-  el.letterGrid.innerHTML = CURRICULUM.map((L, i) => {
+  renderSetDots();
+  el.letterGrid.innerHTML = lettersInSet(currentSet).map(L => {
     const stars = progress[L.letter] || 0;
     const dots = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
-    return '<button class="letter-card' + (stars >= 3 ? ' done' : '') + '" data-index="' + i + '" ' +
+    return '<button class="letter-card' + (stars >= 3 ? ' done' : '') + '" data-index="' + CURRICULUM.indexOf(L) + '" ' +
       'aria-label="Learn the letter ' + L.letter + '">' +
       '<span class="card-pic">' + L.examples[0].pic + '</span>' +
       '<span class="card-letters">' + L.letter + '<span style="opacity:.65">' + L.letter.toLowerCase() + '</span></span>' +
@@ -1767,6 +2113,15 @@ $('#testSoundBtn').addEventListener('click', async () => {
   await playPhoneme('s', 2);
 });
 
+el.setPrev.addEventListener('click', () => {
+  sfx.tap();
+  goToSet(currentSet > SETS[0] ? currentSet - 1 : SETS[SETS.length - 1]);
+});
+el.setNext.addEventListener('click', () => {
+  sfx.tap();
+  goToSet(currentSet < SETS[SETS.length - 1] ? currentSet + 1 : SETS[0]);
+});
+
 el.mapHearBtn.addEventListener('click', () => {
   sfx.tap();
   stopSpeaking();
@@ -1795,9 +2150,10 @@ el.nextBtn.addEventListener('click', () => { advance(); });
 el.doneBtn.addEventListener('click', () => {
   sfx.tap();
   const next = CURRICULUM[currentIndex + 1];
+  if (next) currentSet = next.set;
   goMap(next
     ? [{ t: 'Shall we try the letter ' + next.letter + ' next?' }]
-    : [{ t: 'Pick any letter you like!' }]);
+    : [{ t: 'You have learned every letter! Pick any one you like.' }]);
 });
 
 /* Stop Ollie talking to himself when the tab is hidden. */
@@ -1826,6 +2182,7 @@ function boot() {
   buildAvatars();
   seedBubbles();
   loadProgress();
+  currentSet = firstUnfinishedSet();
   renderMap();
   if (!sttSupported) {
     el.grownupNote.innerHTML =
