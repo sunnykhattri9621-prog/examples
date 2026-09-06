@@ -1742,7 +1742,9 @@ el.startBtn.addEventListener('click', async () => {
        disk (file://). Say so, but never let it block the lesson. */
     const fileHint = location.protocol === 'file:'
       ? ' <br><small>Tip for grown-ups: browsers often block microphones on files opened from your computer. Serve the folder (for example <b>npx serve</b>) and open it over <b>http://localhost</b> to enable listening.</small>'
-      : '';
+      : (window.top !== window.self
+        ? ' <br><small>Tip for grown-ups: an embedded preview blocks the microphone. Open this page in its own browser tab to use the listening game.</small>'
+        : '');
     el.grownupNote.innerHTML =
       '🔈 No microphone — no problem! Ollie will say every sound <b>with</b> you instead.' + fileHint;
   } else {
