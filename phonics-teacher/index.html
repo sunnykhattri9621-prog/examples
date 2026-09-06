@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#ffe8f2" />
+<title>Ollie's Phonics Adventure</title>
+<style>
+  /* ---------------------------------------------------------------
+     PALETTE — vibrant pastels, high contrast text for young eyes
+  --------------------------------------------------------------- */
+  :root {
+    --sky:        #cfeaff;
+    --sky-deep:   #a9d8ff;
+    --mint:       #c9f5e1;
+    --lemon:      #fff2b8;
+    --peach:      #ffd9c2;
+    --blush:      #ffd3e6;
+    --lilac:      #e3d5ff;
+    --ink:        #3a2c53;
+    --ink-soft:   #6b5b8a;
+    --white:      #ffffff;
+    --gold:       #ffc233;
+    --grass:      #7fd67f;
+    --shadow:     0 10px 0 rgba(58, 44, 83, .12), 0 18px 36px rgba(58, 44, 83, .16);
+    --shadow-sm:  0 6px 0 rgba(58, 44, 83, .10), 0 10px 20px rgba(58, 44, 83, .12);
+    --radius:     36px;
+    --font: "Trebuchet MS", "Comic Sans MS", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: var(--font);
+    color: var(--ink);
+    background: linear-gradient(170deg, var(--sky) 0%, var(--lilac) 45%, var(--blush) 100%);
+    background-attachment: fixed;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* Floating background bubbles — pure decoration */
+  .svg-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+  .bubbles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .bubbles span {
+    position: absolute; bottom: -140px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.55);
+    animation: floatUp linear infinite;
+  }
+  @keyframes floatUp {
+    from { transform: translateY(0) scale(1); opacity: 0; }
+    10%  { opacity: .8; }
+    90%  { opacity: .5; }
+    to   { transform: translateY(-118vh) scale(1.25); opacity: 0; }
+  }
+
+  /* ---------------------------------------------------------------
+     SCREEN PLUMBING
+  --------------------------------------------------------------- */
+  .screen {
+    position: fixed; inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: clamp(12px, 3vh, 28px) clamp(12px, 4vw, 40px);
+    z-index: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .screen.active { display: flex; animation: screenIn .45s cubic-bezier(.2,.9,.3,1.2) both; }
+  @keyframes screenIn {
+    from { opacity: 0; transform: scale(.94) translateY(18px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ---------------------------------------------------------------
+     BUTTONS — huge, chunky, thumb-friendly, icon-first
+  --------------------------------------------------------------- */
+  button {
+    font-family: var(--font);
+    font-weight: 800;
+    color: var(--ink);
+    border: none;
+    cursor: pointer;
+    background: var(--white);
+    transition: transform .14s cubic-bezier(.2,.9,.3,1.4), box-shadow .14s ease, filter .14s ease;
+  }
+  button:active { transform: translateY(6px) scale(.97); box-shadow: var(--shadow-sm); }
+  button:focus-visible { outline: 6px solid #ff9ec7; outline-offset: 4px; }
+  button[disabled] { filter: grayscale(.55) opacity(.55); pointer-events: none; }
+
+  .btn-round {
+    width: clamp(76px, 15vw, 104px);
+    height: clamp(76px, 15vw, 104px);
+    border-radius: 50%;
+    font-size: clamp(34px, 7vw, 46px);
+    display: grid; place-items: center;
+    box-shadow: var(--shadow);
+    line-height: 1;
+  }
+
+  .btn-jumbo {
+    padding: clamp(18px, 3vh, 26px) clamp(34px, 8vw, 64px);
+    border-radius: 999px;
+    font-size: clamp(24px, 5vw, 34px);
+    box-shadow: var(--shadow);
+    display: inline-flex; align-items: center; gap: 16px;
+  }
+  .btn-jumbo .big-emoji { font-size: clamp(34px, 7vw, 48px); }
+
+  .btn-play  { background: linear-gradient(160deg, #b6f0c8, #7fd67f); }
+  .btn-mic   { background: linear-gradient(160deg, #ffd0e4, #ff9ec7); }
+  .btn-hear  { background: linear-gradient(160deg, #d8ecff, #9ecdff); }
+  .btn-next  { background: linear-gradient(160deg, #fff0ad, #ffc233); }
+  .btn-home  { background: linear-gradient(160deg, #efe3ff, #c9aeff); }
+
+  .pulse { animation: pulseBtn 1.5s ease-in-out infinite; }
+  @keyframes pulseBtn {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.07); }
+  }
+
+  /* ---------------------------------------------------------------
+     AVATAR — "Ollie" the owl (pure SVG + CSS states)
+  --------------------------------------------------------------- */
+  .avatar-stage { position: relative; display: grid; place-items: center; flex: none; }
+  #owlSvg {
+    width: clamp(150px, 26vh, 250px);
+    height: auto;
+    overflow: visible;
+    filter: drop-shadow(0 14px 18px rgba(58,44,83,.22));
+    transition: transform .3s ease;
+  }
+
+  /* Idle: gentle breathing sway */
+  #owlBody { animation: breathe 3.4s ease-in-out infinite; transform-origin: 100px 150px; }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    50%      { transform: scale(1.035) rotate(-1deg); }
+  }
+
+  /* Blink */
+  /* Lids rest fully open (scaleY(0)); the animation snaps them shut for a blink.
+     Basing them open also keeps the eyes open when motion is reduced. */
+  #lidL, #lidR { transform-origin: center; transform: scaleY(0); animation: blink 5.2s infinite; }
+  #lidR { animation-delay: .08s; }
+  @keyframes blink {
+    0%, 92%, 100% { transform: scaleY(0); }
+    94%, 97%      { transform: scaleY(1); }
+  }
+
+  /* Wings flap a little all the time */
+  #wingL { transform-origin: 44px 116px; animation: flapL 3.4s ease-in-out infinite; }
+  #wingR { transform-origin: 156px 116px; animation: flapR 3.4s ease-in-out infinite; }
+  @keyframes flapL { 0%,100%{transform:rotate(0)} 50%{transform:rotate(-9deg)} }
+  @keyframes flapR { 0%,100%{transform:rotate(0)} 50%{transform:rotate(9deg)} }
+
+  #mouth { transform-origin: 100px 133px; transform: scaleY(.25); transition: transform .12s ease; }
+
+  /* --- TALKING --- */
+  .avatar-stage.talking #owlBody { animation: talkBounce .5s ease-in-out infinite; }
+  @keyframes talkBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-9px) scale(1.03); }
+  }
+  .avatar-stage.talking #mouth { animation: yap .28s ease-in-out infinite alternate; }
+  @keyframes yap {
+    from { transform: scaleY(.25) scaleX(1); }
+    to   { transform: scaleY(1.25) scaleX(.9); }
+  }
+  .avatar-stage.talking #browL { transform: translateY(-3px) rotate(-6deg); }
+  .avatar-stage.talking #browR { transform: translateY(-3px) rotate(6deg); }
+
+  /* --- LISTENING --- */
+  .halo { position: absolute; inset: 0; display: none; place-items: center; pointer-events: none; }
+  .avatar-stage.listening .halo { display: grid; }
+  .halo i {
+    position: absolute;
+    width: clamp(160px, 28vh, 265px);
+    height: clamp(160px, 28vh, 265px);
+    border-radius: 50%;
+    border: 8px solid rgba(255,120,180,.55);
+    animation: ripple 1.9s ease-out infinite;
+  }
+  .halo i:nth-child(2) { animation-delay: .63s; }
+  .halo i:nth-child(3) { animation-delay: 1.26s; }
+  @keyframes ripple {
+    from { transform: scale(.72); opacity: .95; }
+    to   { transform: scale(1.55); opacity: 0; }
+  }
+  .avatar-stage.listening #owlSvg { transform: rotate(-7deg); }
+  .avatar-stage.listening #earL { transform: rotate(-12deg); transform-origin: 62px 60px; }
+  .avatar-stage.listening #earR { transform: rotate(6deg);  transform-origin: 138px 60px; }
+  .avatar-stage.listening #owlBody { animation: leanIn 1.3s ease-in-out infinite; }
+  @keyframes leanIn {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.05); }
+  }
+  .avatar-stage.listening #mouth { transform: scaleY(.55) scaleX(.7); }
+  .mic-badge {
+    position: absolute; bottom: -6px; right: -4px;
+    width: 62px; height: 62px; border-radius: 50%;
+    background: linear-gradient(160deg, #ff9ec7, #ff6fa8);
+    display: none; place-items: center; font-size: 30px;
+    box-shadow: 0 0 0 0 rgba(255,111,168,.7);
+    animation: micGlow 1.4s ease-out infinite;
+  }
+  .avatar-stage.listening .mic-badge { display: grid; }
+  @keyframes micGlow {
+    0%   { box-shadow: 0 0 0 0 rgba(255,111,168,.75); }
+    100% { box-shadow: 0 0 0 34px rgba(255,111,168,0); }
+  }
+
+  /* --- CELEBRATING --- */
+  .avatar-stage.celebrating #owlBody { animation: party .45s ease-in-out infinite; }
+  @keyframes party {
+    0%   { transform: translateY(0)    rotate(-5deg) scale(1);    }
+    50%  { transform: translateY(-26px) rotate(5deg) scale(1.09); }
+    100% { transform: translateY(0)    rotate(-5deg) scale(1);    }
+  }
+  .avatar-stage.celebrating #wingL { animation: flapL .22s ease-in-out infinite; }
+  .avatar-stage.celebrating #wingR { animation: flapR .22s ease-in-out infinite; }
+  .avatar-stage.celebrating #mouth { transform: scaleY(1.5) scaleX(1.1); }
+  .avatar-stage.celebrating #lidL,
+  .avatar-stage.celebrating #lidR { animation: none; transform: scaleY(0); }
+
+  /* ---------------------------------------------------------------
+     SPEECH BUBBLE
+  --------------------------------------------------------------- */
+  .bubble {
+    position: relative;
+    background: var(--white);
+    border-radius: 30px;
+    padding: clamp(14px, 2.4vh, 22px) clamp(20px, 4vw, 34px);
+    max-width: min(760px, 92vw);
+    text-align: center;
+    font-size: clamp(19px, 3.4vw, 28px);
+    font-weight: 700;
+    line-height: 1.35;
+    box-shadow: var(--shadow-sm);
+    margin: 14px 0 4px;
+    min-height: 1em;
+  }
+  .bubble::after {
+    content: "";
+    position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+    border: 12px solid transparent;
+    border-bottom-color: var(--white);
+  }
+  .bubble .sound-token {
+    color: #e0407f;
+    background: #ffe6f1;
+    border-radius: 12px;
+    padding: 0 10px;
+    display: inline-block;
+  }
+
+  /* ---------------------------------------------------------------
+     WELCOME SCREEN
+  --------------------------------------------------------------- */
+  #welcome { justify-content: center; gap: 6px; text-align: center; }
+  .title {
+    font-size: clamp(34px, 8vw, 68px);
+    margin: 0;
+    color: var(--ink);
+    text-shadow: 0 4px 0 rgba(255,255,255,.9);
+    letter-spacing: .5px;
+  }
+  .title .pop { display: inline-block; animation: popLetter 2.4s ease-in-out infinite; }
+  @keyframes popLetter { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px) rotate(-4deg)} }
+  .subtitle { font-size: clamp(16px, 3vw, 24px); color: var(--ink-soft); font-weight: 700; margin: 2px 0 10px; }
+  .grownup-note {
+    font-size: 14px; color: var(--ink-soft); font-weight: 700;
+    background: rgba(255,255,255,.72);
+    padding: 10px 18px; border-radius: 18px;
+    max-width: 560px; margin-top: 14px; line-height: 1.5;
+  }
+
+  /* ---------------------------------------------------------------
+     MAP SCREEN — letter picker
+  --------------------------------------------------------------- */
+  .topbar {
+    width: 100%; max-width: 980px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: none;
+  }
+  .star-counter {
+    background: var(--white);
+    border-radius: 999px;
+    padding: 10px 22px;
+    font-size: clamp(20px, 4vw, 28px);
+    font-weight: 900;
+    box-shadow: var(--shadow-sm);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .letter-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(14px, 3vw, 28px);
+    width: 100%; max-width: 800px;
+    margin: auto 0;
+    padding: 10px 0 20px;
+  }
+  @media (max-width: 460px) { .letter-grid { grid-template-columns: repeat(2, 1fr); } }
+  .letter-card {
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius);
+    display: grid; place-items: center;
+    position: relative;
+    font-size: clamp(46px, 12vw, 84px);
+    font-weight: 900;
+    box-shadow: var(--shadow);
+    overflow: visible;
+  }
+  .letter-card:nth-child(6n+1) { background: linear-gradient(160deg, #fff6c9, #ffd86b); }
+  .letter-card:nth-child(6n+2) { background: linear-gradient(160deg, #d6f7e6, #86e3b6); }
+  .letter-card:nth-child(6n+3) { background: linear-gradient(160deg, #ffe0ea, #ffa7c6); }
+  .letter-card:nth-child(6n+4) { background: linear-gradient(160deg, #dcecff, #9ccbff); }
+  .letter-card:nth-child(6n+5) { background: linear-gradient(160deg, #ede1ff, #c4a9ff); }
+  .letter-card:nth-child(6n+6) { background: linear-gradient(160deg, #ffe6cf, #ffb98a); }
+  .letter-card .card-letters { line-height: 1; }
+  .letter-card .card-stars {
+    position: absolute; bottom: 8px; left: 0; right: 0;
+    font-size: clamp(14px, 3vw, 20px);
+    letter-spacing: 2px;
+  }
+  .letter-card .card-pic {
+    position: absolute; top: 6px; right: 10px;
+    font-size: clamp(22px, 4.5vw, 34px);
+  }
+  .letter-card.done { box-shadow: var(--shadow), 0 0 0 7px var(--gold) inset; }
+
+  /* ---------------------------------------------------------------
+     LESSON SCREEN
+  --------------------------------------------------------------- */
+  #lesson { justify-content: flex-start; gap: 4px; }
+  /* Ollie is a little smaller during a lesson so letter + pictures + buttons
+     all fit on one screen, even on a short phone. */
+  #lesson #owlSvg { width: clamp(104px, 17vh, 168px); }
+  #lesson .halo i { width: clamp(112px, 19vh, 184px); height: clamp(112px, 19vh, 184px); }
+  #lesson .mic-badge { width: 46px; height: 46px; font-size: 22px; }
+  #lesson .bubble { margin: 10px 0 2px; padding: clamp(10px, 1.8vh, 16px) clamp(18px, 4vw, 30px); }
+  .lesson-main {
+    flex: 1;
+    width: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: clamp(6px, 1.4vh, 16px);
+  }
+  .step-dots { display: flex; gap: 10px; }
+  .step-dots i {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: rgba(255,255,255,.85);
+    box-shadow: inset 0 0 0 3px rgba(58,44,83,.14);
+    transition: transform .3s, background .3s;
+  }
+  .step-dots i.on { background: var(--gold); transform: scale(1.35); }
+
+  .big-letter {
+    font-size: clamp(58px, 13vh, 120px);
+    font-weight: 900;
+    line-height: .95;
+    background: var(--white);
+    border-radius: 40px;
+    padding: clamp(4px, 1.5vh, 16px) clamp(26px, 6vw, 54px);
+    box-shadow: var(--shadow);
+    display: inline-flex; align-items: baseline; gap: 14px;
+    animation: letterPop .55s cubic-bezier(.2,.9,.3,1.6) both;
+  }
+  @keyframes letterPop { from { transform: scale(.5) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  .big-letter small { font-size: .58em; color: var(--ink-soft); }
+
+  .tile-row { display: flex; gap: clamp(12px, 3vw, 30px); flex-wrap: wrap; justify-content: center; }
+  .tile {
+    width: clamp(112px, 21vw, 172px);
+    border-radius: var(--radius);
+    background: var(--white);
+    box-shadow: var(--shadow);
+    padding: clamp(10px, 2vh, 20px) 10px clamp(8px, 1.6vh, 14px);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    animation: tileIn .5s cubic-bezier(.2,.9,.3,1.5) both;
+  }
+  .tile:nth-child(2) { animation-delay: .12s; }
+  @keyframes tileIn { from { transform: translateY(30px) scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+  .tile .pic { font-size: clamp(42px, 8.5vw, 68px); line-height: 1.1; }
+  .tile .word { font-size: clamp(18px, 3.4vw, 28px); font-weight: 900; }
+  .tile .word b { color: #e0407f; }
+  .tile.correct { animation: rightAnswer .6s ease both; box-shadow: var(--shadow), 0 0 0 8px var(--grass) inset; }
+  @keyframes rightAnswer {
+    0%,100% { transform: scale(1); }
+    30%     { transform: scale(1.16) rotate(3deg); }
+    60%     { transform: scale(1.06) rotate(-2deg); }
+  }
+  .tile.gentle { animation: gentleWobble .55s ease both; }
+  @keyframes gentleWobble {
+    0%,100% { transform: translateX(0); }
+    25%     { transform: translateX(-9px) rotate(-2deg); }
+    75%     { transform: translateX(9px) rotate(2deg); }
+  }
+
+  .controls { display: flex; gap: clamp(12px, 3vw, 26px); align-items: center; justify-content: center; flex-wrap: wrap; padding-bottom: 8px; flex: none; }
+
+  .heard {
+    font-size: clamp(15px, 2.6vw, 20px);
+    font-weight: 800;
+    color: var(--ink-soft);
+    background: rgba(255,255,255,.75);
+    border-radius: 999px;
+    padding: 6px 20px;
+    min-height: 34px;
+    display: flex; align-items: center;
+    opacity: 0; transition: opacity .25s;
+  }
+  .heard.show { opacity: 1; }
+
+  /* ---------------------------------------------------------------
+     REWARDS: stars, confetti, star tray
+  --------------------------------------------------------------- */
+  .star-tray { display: flex; gap: 10px; font-size: clamp(28px, 6vw, 44px); flex: none; min-height: 1.2em; }
+  .star-tray span { filter: grayscale(1) opacity(.32); transition: filter .3s; }
+  .star-tray span.lit { filter: none; animation: starPop .6s cubic-bezier(.2,.9,.3,1.8) both; }
+  @keyframes starPop {
+    0%   { transform: scale(0) rotate(-90deg); }
+    60%  { transform: scale(1.5) rotate(12deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; overflow: hidden; }
+  .confetti-bit {
+    position: absolute; top: -40px;
+    font-size: 30px;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    from { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
+    to   { transform: translateY(112vh) rotate(720deg) scale(.7); opacity: .9; }
+  }
+
+  .flyer {
+    position: fixed; z-index: 61; pointer-events: none;
+    font-size: 60px;
+    animation: flyUp 1.15s ease-out forwards;
+  }
+  @keyframes flyUp {
+    from { transform: translate(-50%, 0) scale(.4); opacity: 0; }
+    35%  { opacity: 1; }
+    to   { transform: translate(-50%, -190px) scale(1.5); opacity: 0; }
+  }
+
+  /* ---------------------------------------------------------------
+     COMPLETE OVERLAY
+  --------------------------------------------------------------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 55;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; text-align: center;
+    background: rgba(255,255,255,.86);
+    backdrop-filter: blur(6px);
+    padding: 24px;
+  }
+  .overlay.show { display: flex; animation: screenIn .4s ease both; }
+  .overlay h2 { font-size: clamp(32px, 8vw, 64px); margin: 0; }
+  .overlay .trophy { font-size: clamp(70px, 18vw, 130px); animation: party .8s ease-in-out infinite; }
+
+  .hidden { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Gradients live here, outside every screen: paint servers inside a
+     display:none subtree are not built by the browser. -->
+<svg class="svg-defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <radialGradient id="bodyGrad" cx="42%" cy="30%">
+      <stop offset="0%"  stop-color="#c9aaff"/>
+      <stop offset="100%" stop-color="#8e6ce0"/>
+    </radialGradient>
+    <linearGradient id="tummyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#fff8e2"/>
+      <stop offset="100%" stop-color="#ffe3b0"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="bubbles" id="bubbles" aria-hidden="true"></div>
+<div id="confetti" aria-hidden="true"></div>
+
+<!-- ============================= WELCOME ============================= -->
+<section class="screen active" id="welcome">
+  <div class="avatar-stage" id="stageWelcome">
+    <div class="halo"><i></i><i></i><i></i></div>
+    <!-- Owl avatar is cloned into every stage by JS -->
+  </div>
+  <h1 class="title">
+    <span class="pop" style="animation-delay:0s">O</span><span class="pop" style="animation-delay:.1s">l</span><span class="pop" style="animation-delay:.2s">l</span><span class="pop" style="animation-delay:.3s">i</span><span class="pop" style="animation-delay:.4s">e</span>'s Phonics
+  </h1>
+  <p class="subtitle">Tap the green button to play! 🎈</p>
+
+  <button class="btn-jumbo btn-play pulse" id="startBtn">
+    <span class="big-emoji">▶️</span> Let's Play!
+  </button>
+
+  <p class="grownup-note" id="grownupNote">
+    👋 <b>For grown-ups:</b> This app talks and listens. Your browser will ask for
+    microphone permission after you tap <b>Let's Play</b> — please tap <b>Allow</b> so Ollie
+    can hear your child practise sounds. Works best in Chrome or Edge, with sound turned on.
+  </p>
+</section>
+
+<!-- ============================== MAP =============================== -->
+<section class="screen" id="map">
+  <div class="topbar">
+    <button class="btn-round btn-hear" id="mapHearBtn" aria-label="Hear again">🔊</button>
+    <div class="star-counter">⭐ <span id="starTotal">0</span></div>
+  </div>
+
+  <div class="avatar-stage" id="stageMap" style="margin-top:6px">
+    <div class="halo"><i></i><i></i><i></i></div>
+  </div>
+  <div class="bubble" id="mapBubble">Pick a letter to learn!</div>
+
+  <div class="letter-grid" id="letterGrid"></div>
+</section>
+
+<!-- ============================= LESSON ============================= -->
+<section class="screen" id="lesson">
+  <div class="topbar">
+    <button class="btn-round btn-home" id="homeBtn" aria-label="Back to letters">🏠</button>
+    <div class="step-dots" id="stepDots"><i></i><i></i><i></i></div>
+    <div class="star-tray" id="starTray"><span>⭐</span><span>⭐</span><span>⭐</span></div>
+  </div>
+
+  <div class="lesson-main">
+    <div class="avatar-stage" id="stageLesson">
+      <div class="halo"><i></i><i></i><i></i></div>
+      <div class="mic-badge">🎤</div>
+    </div>
+
+    <div class="bubble" id="lessonBubble"></div>
+    <div class="heard" id="heardText"></div>
+
+    <div id="stageContent" style="display:flex;flex-direction:column;align-items:center;gap:14px"></div>
+  </div>
+
+  <div class="controls" id="lessonControls">
+    <button class="btn-round btn-hear" id="repeatBtn" aria-label="Say it again">🔁</button>
+    <button class="btn-jumbo btn-mic hidden" id="micBtn"><span class="big-emoji">🎤</span> My Turn!</button>
+    <button class="btn-round btn-next hidden" id="nextBtn" aria-label="Next">➡️</button>
+  </div>
+</section>
+
+<!-- ============================ OVERLAY ============================= -->
+<div class="overlay" id="doneOverlay">
+  <div class="trophy" id="doneTrophy">🏆</div>
+  <h2 id="doneTitle">Amazing!</h2>
+  <div class="star-tray" id="doneStars"><span class="lit">⭐</span><span class="lit">⭐</span><span class="lit">⭐</span></div>
+  <button class="btn-jumbo btn-play pulse" id="doneBtn"><span class="big-emoji">➡️</span> Keep Going!</button>
+</div>
+
+<!-- Owl template, cloned into each avatar stage -->
+<template id="owlTemplate">
+  <svg id="owlSvg" viewBox="0 0 200 200" role="img" aria-label="Ollie the owl teacher">
+    <g id="owlBody">
+      <!-- ear tufts -->
+      <path id="earL" d="M52 74 L60 26 L92 58 Z" fill="#7a58d0"/>
+      <path id="earR" d="M148 74 L140 26 L108 58 Z" fill="#7a58d0"/>
+
+      <!-- wings -->
+      <ellipse id="wingL" cx="36" cy="126" rx="18" ry="40" fill="#7a58d0"/>
+      <ellipse id="wingR" cx="164" cy="126" rx="18" ry="40" fill="#7a58d0"/>
+
+      <!-- body -->
+      <ellipse cx="100" cy="118" rx="72" ry="76" fill="url(#bodyGrad)"/>
+      <ellipse cx="100" cy="136" rx="46" ry="52" fill="url(#tummyGrad)"/>
+
+      <!-- brows -->
+      <rect id="browL" x="52" y="72" width="38" height="9" rx="4.5" fill="#5b3fa8"/>
+      <rect id="browR" x="110" y="72" width="38" height="9" rx="4.5" fill="#5b3fa8"/>
+
+      <!-- eyes -->
+      <circle cx="72" cy="100" r="26" fill="#fff"/>
+      <circle cx="128" cy="100" r="26" fill="#fff"/>
+      <circle cx="75" cy="102" r="12" fill="#3a2c53"/>
+      <circle cx="131" cy="102" r="12" fill="#3a2c53"/>
+      <circle cx="80" cy="97"  r="4.5" fill="#fff"/>
+      <circle cx="136" cy="97" r="4.5" fill="#fff"/>
+      <!-- eyelids for blinking -->
+      <circle id="lidL" cx="72" cy="100" r="27" fill="#a487f0"/>
+      <circle id="lidR" cx="128" cy="100" r="27" fill="#a487f0"/>
+
+      <!-- rosy cheeks -->
+      <ellipse cx="56" cy="127" rx="13" ry="9" fill="#ff9ec7" opacity=".65"/>
+      <ellipse cx="144" cy="127" rx="13" ry="9" fill="#ff9ec7" opacity=".65"/>
+
+      <!-- beak + mouth -->
+      <path d="M100 112 L112 128 L88 128 Z" fill="#ffb347"/>
+      <ellipse id="mouth" cx="100" cy="133" rx="12" ry="10" fill="#c9436b"/>
+
+      <!-- feet -->
+      <path d="M78 190 l-12 8 M78 190 l0 10 M78 190 l12 8" stroke="#ffb347" stroke-width="7" stroke-linecap="round" fill="none"/>
+      <path d="M122 190 l-12 8 M122 190 l0 10 M122 190 l12 8" stroke="#ffb347" stroke-width="7" stroke-linecap="round" fill="none"/>
+    </g>
+  </svg>
+</template>
+
+<script>
+"use strict";
+
+/* =================================================================
+   OLLIE'S PHONICS ADVENTURE
+   A single-file, zero-dependency phonics tutor for 6-year-olds.
+
+   Teaching order follows the Orton-Gillingham / Jolly Phonics
+   sequence: S, A, T, P, I, N — the first six letters chosen because
+   they combine into many real words (sat, tap, pin, nip, tin...).
+
+   Each lesson runs three steps:
+     1. Sound Discovery   — meet the letter, hear the sound, see 2 pictures
+     2. Listen & Repeat   — child says the sound into the microphone
+     3. Sound Tap Game    — child taps the picture that starts with the sound
+
+   Every step is fully spoken aloud; no reading is required to navigate.
+   ================================================================= */
+
+/* -----------------------------------------------------------------
+   1. CURRICULUM
+   ----------------------------------------------------------------- */
+const CURRICULUM = [
+  {
+    letter: 'S',
+    /* how the sound is written on screen */
+    display: '/sssss/',
+    /* how the sound is fed to the speech engine so it sounds right */
+    tts: 'ssssss',
+    simile: 'like a sleepy snake',
+    examples: [
+      { pic: '☀️', word: 'Sun',   say: 'Sun'   },
+      { pic: '🐍', word: 'Snake', say: 'Snake' }
+    ],
+    game: {
+      right: { pic: '🧦', word: 'Sock' },
+      wrong: { pic: '🌙', word: 'Moon' }
+    },
+    /* forgiving speech matching for 6-year-old voices */
+    accept: ['s', 'ss', 'sss', 'es', 'ess', 'as', 'ass', 'us', 'hiss', 'yes', 'sun', 'snake', 'sock', 'sorry', 'this', 'sh', 'shh', 'c', 'see', 'sea'],
+    starts: ['s', 'c', 'z', 'ps', 'x']
+  },
+  {
+    letter: 'A',
+    display: '/aaa/',
+    tts: 'aah',
+    simile: 'like an ant on your arm',
+    examples: [
+      { pic: '🍎', word: 'Apple', say: 'Apple' },
+      { pic: '🐜', word: 'Ant',   say: 'Ant'   }
+    ],
+    game: {
+      right: { pic: '🐊', word: 'Alligator' },
+      wrong: { pic: '🐶', word: 'Dog' }
+    },
+    accept: ['a', 'ah', 'aa', 'aah', 'ar', 'uh', 'ha', 'hey', 'eh', 'apple', 'ant', 'and', 'at', 'am', 'alligator', 'aunt', 'are'],
+    starts: ['a', 'u', 'o', 'h']
+  },
+  {
+    letter: 'T',
+    display: '/t/ /t/ /t/',
+    tts: 'tuh',
+    simile: 'like a ticking clock',
+    examples: [
+      { pic: '🐯', word: 'Tiger', say: 'Tiger' },
+      { pic: '🌳', word: 'Tree',  say: 'Tree'  }
+    ],
+    game: {
+      right: { pic: '🐢', word: 'Turtle' },
+      wrong: { pic: '🍰', word: 'Cake' }
+    },
+    accept: ['t', 'tt', 'te', 'tea', 'tee', 'ta', 'tuh', 'to', 'too', 'two', 'tie', 'it', 'at', 'tiger', 'tree', 'turtle', 'tick', 'top', 'toy', 'd', 'dee'],
+    starts: ['t', 'd']
+  },
+  {
+    letter: 'P',
+    display: '/p/ /p/ /p/',
+    tts: 'puh',
+    simile: 'like popping popcorn',
+    examples: [
+      { pic: '🐷', word: 'Pig',   say: 'Pig'   },
+      { pic: '🍕', word: 'Pizza', say: 'Pizza' }
+    ],
+    game: {
+      right: { pic: '🐧', word: 'Penguin' },
+      wrong: { pic: '🚌', word: 'Bus' }
+    },
+    accept: ['p', 'pp', 'pe', 'pea', 'pee', 'pa', 'puh', 'poo', 'pop', 'up', 'pig', 'pizza', 'penguin', 'pen', 'play', 'b', 'bee', 'be'],
+    starts: ['p', 'b']
+  },
+  {
+    letter: 'I',
+    display: '/iii/',
+    tts: 'ih',
+    simile: 'like an itchy insect',
+    examples: [
+      { pic: '🛖', word: 'Igloo',  say: 'Igloo'  },
+      { pic: '🐛', word: 'Insect', say: 'Insect' }
+    ],
+    game: {
+      right: { pic: '🖋️', word: 'Ink' },
+      wrong: { pic: '🐄', word: 'Cow' }
+    },
+    accept: ['i', 'ih', 'ee', 'eh', 'it', 'in', 'is', 'if', 'ill', 'igloo', 'insect', 'ink', 'itchy', 'eye', 'hi', 'e', 'a'],
+    starts: ['i', 'e', 'y', 'h']
+  },
+  {
+    letter: 'N',
+    display: '/nnn/',
+    tts: 'nnnn',
+    simile: 'like a humming nose',
+    examples: [
+      { pic: '🪺', word: 'Nest', say: 'Nest' },
+      { pic: '👃', word: 'Nose', say: 'Nose' }
+    ],
+    game: {
+      right: { pic: '🥜', word: 'Nut' },
+      wrong: { pic: '🐱', word: 'Cat' }
+    },
+    accept: ['n', 'nn', 'en', 'an', 'in', 'on', 'un', 'no', 'know', 'now', 'nest', 'nose', 'nut', 'nine', 'hmm', 'mm', 'm', 'em'],
+    starts: ['n', 'm', 'k']
+  }
+];
+
+/* Gentle, always-positive encouragements — never "wrong", never "no". */
+const ENCOURAGE = [
+  'Great try! Let us listen together again.',
+  'Nice work! Let us have one more go together.',
+  'Good effort! Listen to me one more time.',
+  'You are so brave for trying! Here it comes again.'
+];
+const PRAISE = [
+  'Woohoo! You did it!',
+  'Fantastic! That was perfect!',
+  'Yes! You are a phonics superstar!',
+  'Brilliant! High five!',
+  'Wonderful! I am so proud of you!'
+];
+
+/* -----------------------------------------------------------------
+   2. TINY HELPERS
+   ----------------------------------------------------------------- */
+const $  = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+/* -----------------------------------------------------------------
+   3. AVATAR — Ollie's four visual states
+   ----------------------------------------------------------------- */
+const STAGES = [];
+function buildAvatars() {
+  const tpl = $('#owlTemplate');
+  ['#stageWelcome', '#stageMap', '#stageLesson'].forEach(sel => {
+    const stage = $(sel);
+    stage.appendChild(tpl.content.cloneNode(true));
+    STAGES.push(stage);
+  });
+}
+/* state: 'idle' | 'talking' | 'listening' | 'celebrating' */
+let avatarState = 'idle';
+function setAvatar(state) {
+  avatarState = state;
+  STAGES.forEach(s => {
+    s.classList.remove('talking', 'listening', 'celebrating');
+    if (state !== 'idle') s.classList.add(state);
+  });
+}
+
+/* -----------------------------------------------------------------
+   4. SOUND EFFECTS (WebAudio — no files, works offline)
+   ----------------------------------------------------------------- */
+let audioCtx = null;
+function ac() {
+  if (!audioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) audioCtx = new Ctx();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone(freq, start, dur, vol = 0.14, type = 'sine') {
+  const ctx = ac();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, ctx.currentTime + start);
+  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(ctx.currentTime + start);
+  osc.stop(ctx.currentTime + start + dur + 0.05);
+}
+const sfx = {
+  tap:     () => tone(660, 0, 0.12, 0.10, 'triangle'),
+  sparkle: () => [880, 1174, 1568].forEach((f, i) => tone(f, i * 0.09, 0.28, 0.12, 'triangle')),
+  cheer:   () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, i * 0.1, 0.45, 0.13, 'triangle')),
+  listen:  () => { tone(523, 0, 0.14, 0.10); tone(784, 0.12, 0.2, 0.10); },
+  hug:     () => { tone(440, 0, 0.22, 0.09); tone(523, 0.16, 0.3, 0.09); }
+};
+
+/* -----------------------------------------------------------------
+   5. TEXT TO SPEECH — slow, warm, high-pitched teacher voice
+   ----------------------------------------------------------------- */
+const synth = window.speechSynthesis;
+let teacherVoice = null;
+
+function chooseVoice() {
+  if (!synth) return;
+  const voices = synth.getVoices();
+  if (!voices.length) return;
+  const preferred = [
+    'google uk english female', 'google us english', 'samantha', 'karen',
+    'moira', 'tessa', 'fiona', 'microsoft zira', 'microsoft aria',
+    'microsoft jenny', 'microsoft sonia', 'female'
+  ];
+  const en = voices.filter(v => /^en/i.test(v.lang));
+  for (const name of preferred) {
+    const hit = en.find(v => v.name.toLowerCase().includes(name));
+    if (hit) { teacherVoice = hit; return; }
+  }
+  teacherVoice = en[0] || voices[0];
+}
+if (synth) {
+  chooseVoice();
+  synth.addEventListener('voiceschanged', chooseVoice);
+}
+
+let speechToken = 0; /* bumped to abandon in-flight speech when we change screens */
+
+/**
+ * Speak one phrase. rate 0.85 / pitch 1.2 by default: slow and warm.
+ * Phonetic sounds are spoken slower still so they stretch out.
+ */
+function speakOne(text, opts = {}) {
+  return new Promise(resolve => {
+    if (!synth || !text) { resolve(); return; }
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate   = opts.rate   != null ? opts.rate   : 0.85;
+    u.pitch  = opts.pitch  != null ? opts.pitch  : 1.2;
+    u.volume = 1;
+    u.lang   = 'en-US';
+    if (teacherVoice) u.voice = teacherVoice;
+    let settled = false;
+    const finish = () => { if (!settled) { settled = true; resolve(); } };
+    u.onend = finish;
+    u.onerror = finish;
+    /* Safety net: some engines never fire onend for very short strings. */
+    const guard = setTimeout(finish, Math.max(2500, text.length * 190));
+    u.onend = () => { clearTimeout(guard); finish(); };
+    try { synth.resume(); synth.speak(u); } catch (e) { finish(); }
+  });
+}
+
+/**
+ * Speak a script: an array of { t: text, sound: bool, gap: ms }.
+ * Sound segments are stretched out (rate 0.55) so /sssss/ really hisses.
+ */
+async function say(script) {
+  const token = ++speechToken;
+  if (synth) synth.cancel();
+  setAvatar('talking');
+  for (const part of script) {
+    if (token !== speechToken) return false;
+    await speakOne(part.t, part.sound ? { rate: 0.55, pitch: 1.15 } : {});
+    if (part.gap) await wait(part.gap);
+  }
+  if (token !== speechToken) return false;
+  setAvatar('idle');
+  return true;
+}
+function stopSpeaking() {
+  speechToken++;
+  if (synth) synth.cancel();
+  if (avatarState === 'talking') setAvatar('idle');
+}
+
+/* Repeat the sound three times, e.g. "sss, sss, sss" */
+function soundScript(lesson, times = 3) {
+  const out = [];
+  for (let i = 0; i < times; i++) out.push({ t: lesson.tts, sound: true, gap: 220 });
+  return out;
+}
+
+/* -----------------------------------------------------------------
+   6. SPEECH RECOGNITION — "Talk to Teacher"
+   ----------------------------------------------------------------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const sttSupported = !!SR;
+let recognition = null;
+let micAllowed = null;   /* null = not asked yet, true/false afterwards */
+
+function buildRecognition() {
+  if (!sttSupported) return null;
+  const r = new SR();
+  r.lang = 'en-US';
+  r.continuous = false;
+  r.interimResults = true;
+  r.maxAlternatives = 5;
+  return r;
+}
+
+/** Ask nicely for the microphone. Never blocks the lesson if refused. */
+async function requestMic() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    micAllowed = sttSupported;      /* let the SR API prompt on its own */
+    return micAllowed;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());   /* we only wanted the prompt */
+    micAllowed = true;
+  } catch (err) {
+    micAllowed = false;
+  }
+  return micAllowed;
+}
+
+/**
+ * Listen for one short answer.
+ * Resolves with { transcripts: [...], ok: bool, reason }.
+ * Never rejects — a 6-year-old should never see an error.
+ */
+function listenOnce({ timeout = 7000 } = {}) {
+  return new Promise(resolve => {
+    if (!sttSupported || micAllowed === false) {
+      resolve({ transcripts: [], ok: false, reason: 'unsupported' });
+      return;
+    }
+    recognition = buildRecognition();
+    if (!recognition) { resolve({ transcripts: [], ok: false, reason: 'unsupported' }); return; }
+
+    const heard = [];
+    let done = false;
+    const finish = (reason) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try { recognition.stop(); } catch (e) { /* already stopped */ }
+      recognition = null;
+      setAvatar('idle');
+      resolve({ transcripts: heard, ok: heard.length > 0, reason });
+    };
+
+    recognition.onresult = (ev) => {
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const res = ev.results[i];
+        for (let a = 0; a < res.length; a++) {
+          const txt = (res[a].transcript || '').trim();
+          if (txt && !heard.includes(txt)) heard.push(txt);
+        }
+        if (res.isFinal) { finish('final'); return; }
+      }
+      showHeard(heard[0]);
+    };
+    recognition.onerror = (ev) => {
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') micAllowed = false;
+      finish(ev.error || 'error');
+    };
+    recognition.onend = () => finish('end');
+
+    const timer = setTimeout(() => finish('timeout'), timeout);
+
+    try {
+      setAvatar('listening');
+      sfx.listen();
+      recognition.start();
+    } catch (e) {
+      finish('start-failed');
+    }
+  });
+}
+
+function stopListening() {
+  if (recognition) {
+    try { recognition.abort(); } catch (e) { /* noop */ }
+    recognition = null;
+  }
+  if (avatarState === 'listening') setAvatar('idle');
+}
+
+/* -----------------------------------------------------------------
+   7. FORGIVING PHONETIC MATCHING
+   Six-year-olds mumble, whisper and giggle; the recogniser guesses
+   whole words. We accept anything in the right phonetic neighbourhood.
+   ----------------------------------------------------------------- */
+function normalize(s) {
+  return (s || '').toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function editDistance(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i].concat(new Array(b.length).fill(0)));
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+  }
+  return dp[a.length][b.length];
+}
+/** Collapse repeats so "ssssss" and "ss" look the same. */
+function squash(s) { return s.replace(/(.)\1+/g, '$1'); }
+
+function matchesSound(transcripts, lesson) {
+  const letter = lesson.letter.toLowerCase();
+  for (const raw of transcripts) {
+    const t = normalize(raw);
+    if (!t) continue;
+    const words = t.split(' ');
+
+    /* a) the whole utterance, or any word in it, is on the accept list */
+    for (const ok of lesson.accept) {
+      if (t === ok || words.includes(ok)) return true;
+      if (squash(t) === squash(ok)) return true;
+    }
+    /* b) any word starts with the target sound (child said a whole word).
+           `starts` deliberately includes voicing twins (p/b, t/d, s/z) because
+           recognisers routinely hear a small child's /p/ as "b". We would much
+           rather accept a near miss than tell a beginner they got it wrong. */
+    for (const w of words) {
+      if (!w) continue;
+      if (w[0] === letter) return true;
+      if (lesson.starts.some(p => w.startsWith(p))) return true;
+    }
+    /* c) very close to something on the accept list (one slip allowed) */
+    const flat = squash(t.replace(/\s/g, ''));
+    for (const ok of lesson.accept) {
+      const target = squash(ok);
+      const budget = target.length <= 3 ? 1 : 2;
+      if (editDistance(flat, target) <= budget) return true;
+    }
+  }
+  return false;
+}
+
+/* -----------------------------------------------------------------
+   8. REWARDS — stars, confetti, cheering
+   ----------------------------------------------------------------- */
+const CONFETTI = ['⭐', '🌟', '✨', '🎉', '🎈', '💛', '💜', '🩵'];
+function confetti(count = 26) {
+  const box = $('#confetti');
+  for (let i = 0; i < count; i++) {
+    const bit = document.createElement('div');
+    bit.className = 'confetti-bit';
+    bit.textContent = pick(CONFETTI);
+    bit.style.left = Math.random() * 100 + 'vw';
+    bit.style.fontSize = (20 + Math.random() * 26) + 'px';
+    bit.style.animationDuration = (1.9 + Math.random() * 1.5) + 's';
+    bit.style.animationDelay = (Math.random() * 0.5) + 's';
+    box.appendChild(bit);
+    setTimeout(() => bit.remove(), 4200);
+  }
+}
+function flyStar(fromEl) {
+  const r = fromEl.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'flyer';
+  el.textContent = '⭐';
+  el.style.left = (r.left + r.width / 2) + 'px';
+  el.style.top  = (r.top + r.height / 4) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1300);
+}
+
+/* -----------------------------------------------------------------
+   9. PROGRESS (saved on the device)
+   ----------------------------------------------------------------- */
+const SAVE_KEY = 'ollie-phonics-progress-v1';
+let progress = {};
+function loadProgress() {
+  try { progress = JSON.parse(localStorage.getItem(SAVE_KEY)) || {}; }
+  catch (e) { progress = {}; }
+}
+function saveProgress() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(progress)); } catch (e) { /* private mode */ }
+}
+function totalStars() {
+  return Object.values(progress).reduce((a, b) => a + (b || 0), 0);
+}
+
+/* -----------------------------------------------------------------
+   10. SCREENS
+   ----------------------------------------------------------------- */
+function showScreen(id) {
+  $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+}
+
+/* Element shortcuts */
+const el = {
+  startBtn:    $('#startBtn'),
+  grownupNote: $('#grownupNote'),
+  letterGrid:  $('#letterGrid'),
+  starTotal:   $('#starTotal'),
+  mapBubble:   $('#mapBubble'),
+  mapHearBtn:  $('#mapHearBtn'),
+  lessonBubble:$('#lessonBubble'),
+  stageContent:$('#stageContent'),
+  stepDots:    $$('#stepDots i'),
+  starTray:    $$('#starTray span'),
+  heard:       $('#heardText'),
+  micBtn:      $('#micBtn'),
+  nextBtn:     $('#nextBtn'),
+  repeatBtn:   $('#repeatBtn'),
+  homeBtn:     $('#homeBtn'),
+  overlay:     $('#doneOverlay'),
+  doneTitle:   $('#doneTitle'),
+  doneStars:   $$('#doneStars span'),
+  doneBtn:     $('#doneBtn')
+};
+
+function setBubble(html) { el.lessonBubble.innerHTML = html; }
+function setContent(html) { el.stageContent.innerHTML = html; }
+function showHeard(text) {
+  if (!text) { el.heard.classList.remove('show'); return; }
+  el.heard.textContent = '👂 I heard: "' + text + '"';
+  el.heard.classList.add('show');
+}
+function clearHeard() { el.heard.textContent = ''; el.heard.classList.remove('show'); }
+
+function tokenHtml(lesson) {
+  return '<span class="sound-token">' + lesson.display + '</span>';
+}
+
+/* -----------------------------------------------------------------
+   11. LESSON ENGINE
+   ----------------------------------------------------------------- */
+let current = null;      /* current lesson object */
+let currentIndex = 0;
+let stepIndex = 0;       /* 0 discovery, 1 listen & repeat, 2 tap game */
+let starsEarned = 0;
+let attempts = 0;
+let flowToken = 0;       /* bumped whenever we leave/restart a flow */
+let replay = null;       /* what the 🔁 button re-runs */
+
+function newFlow() {
+  flowToken++;
+  stopSpeaking();
+  stopListening();
+  return flowToken;
+}
+const alive = token => token === flowToken;
+
+function setStepDots() {
+  el.stepDots.forEach((d, i) => d.classList.toggle('on', i === stepIndex));
+}
+function paintStars() {
+  el.starTray.forEach((s, i) => s.classList.toggle('lit', i < starsEarned));
+}
+function showControls({ mic = false, next = false, micLabel = '🎤 My Turn!' } = {}) {
+  el.micBtn.classList.toggle('hidden', !mic);
+  el.nextBtn.classList.toggle('hidden', !next);
+  el.micBtn.innerHTML = micLabel;
+  el.micBtn.classList.toggle('pulse', mic);
+  el.nextBtn.classList.toggle('pulse', next);
+}
+
+async function awardStar(sourceEl) {
+  if (starsEarned >= 3) return;
+  starsEarned++;
+  paintStars();
+  sfx.sparkle();
+  if (sourceEl) flyStar(sourceEl);
+  confetti(18);
+  setAvatar('celebrating');
+  await wait(900);
+  setAvatar('idle');
+}
+
+/* ---------- STEP 1: SOUND DISCOVERY ---------- */
+async function stepDiscovery(token) {
+  stepIndex = 0;
+  setStepDots();
+  clearHeard();
+  showControls({});
+  const L = current;
+
+  setContent(
+    '<div class="big-letter">' + L.letter + '<small>' + L.letter.toLowerCase() + '</small></div>' +
+    '<div class="tile-row">' +
+      L.examples.map((ex, i) =>
+        '<button class="tile" data-say="' + ex.say + '">' +
+          '<span class="pic">' + ex.pic + '</span>' +
+          '<span class="word"><b>' + ex.word[0] + '</b>' + ex.word.slice(1) + '</span>' +
+        '</button>'
+      ).join('') +
+    '</div>'
+  );
+  $$('.tile', el.stageContent).forEach(t => {
+    t.addEventListener('click', async () => {
+      sfx.tap();
+      stopSpeaking();
+      await say([
+        { t: t.dataset.say },
+        { t: t.dataset.say + ' starts with' },
+        { t: L.tts, sound: true }
+      ]);
+    });
+  });
+
+  setBubble('This is the letter <b>' + L.letter + '</b>. It says ' + tokenHtml(L) + ' ' + L.simile + '!');
+
+  replay = () => stepDiscovery(token);
+  const ok = await say([
+    { t: 'This is the letter ' + L.letter + '.', gap: 200 },
+    { t: 'The letter ' + L.letter + ' makes the sound', gap: 120 },
+    ...soundScript(L, 3),
+    { t: L.simile + '!', gap: 250 },
+    { t: L.examples[0].say + ' starts with', gap: 80 },
+    { t: L.tts, sound: true, gap: 200 },
+    { t: L.examples[1].say + ' starts with', gap: 80 },
+    { t: L.tts, sound: true, gap: 200 },
+    { t: 'Tap a picture to hear it again, or tap the yellow arrow to keep going!' }
+  ]);
+  if (!ok || !alive(token)) return;
+  showControls({ next: true });
+}
+
+/* ---------- STEP 2: LISTEN & REPEAT ---------- */
+async function stepRepeat(token, isRetry) {
+  stepIndex = 1;
+  setStepDots();
+  clearHeard();
+  showControls({});
+  const L = current;
+  const canListen = sttSupported && micAllowed !== false;
+
+  setContent('<div class="big-letter">' + L.letter + '<small>' + L.letter.toLowerCase() + '</small></div>');
+  setBubble('Your turn! Can you say ' + tokenHtml(L) + ' for me? 🎤');
+
+  replay = () => stepRepeat(token, true);
+
+  const intro = isRetry ? [] : [{ t: 'Now it is your turn!', gap: 150 }];
+  const ok = await say([
+    ...intro,
+    { t: 'Can you make the sound', gap: 100 },
+    ...soundScript(L, 2),
+    { t: 'for me?', gap: 200 },
+    canListen
+      ? { t: 'Tap the pink microphone, then say the sound out loud!' }
+      : { t: 'Tap the pink button and we will say it together!' }
+  ]);
+  if (!ok || !alive(token)) return;
+  showControls({ mic: true, micLabel: canListen ? '<span class="big-emoji">🎤</span> My Turn!' : '<span class="big-emoji">🗣️</span> Say It With Me!' });
+}
+
+async function doListen(token) {
+  const L = current;
+  const canListen = sttSupported && micAllowed !== false;
+  stopSpeaking();
+  showControls({});
+  clearHeard();
+
+  /* No microphone? Then we simply practise together — still a star. */
+  if (!canListen) {
+    await say([{ t: 'Let us say it together!', gap: 150 }, ...soundScript(L, 3)]);
+    if (!alive(token)) return;
+    await say([{ t: pick(PRAISE) }]);
+    if (!alive(token)) return;
+    sfx.cheer();
+    await awardStar(el.micBtn);
+    showControls({ next: true });
+    return;
+  }
+
+  const result = await listenOnce({ timeout: 7000 });
+  if (!alive(token)) return;
+  if (result.transcripts.length) showHeard(result.transcripts[0]);
+
+  const good = matchesSound(result.transcripts, L);
+
+  if (good) {
+    sfx.cheer();
+    setBubble('🎉 ' + 'You said ' + tokenHtml(L) + ' perfectly!');
+    await awardStar(el.micBtn);
+    if (!alive(token)) return;
+    await say([{ t: pick(PRAISE), gap: 120 }, { t: 'That was a beautiful' }, { t: L.tts, sound: true }]);
+    if (!alive(token)) return;
+    showControls({ next: true });
+    return;
+  }
+
+  /* Zero negative reinforcement: every attempt is celebrated as effort. */
+  attempts++;
+  sfx.hug();
+  if (attempts < 2) {
+    setBubble('👏 Great try! Listen once more: ' + tokenHtml(L));
+    const ok = await say([
+      { t: pick(ENCOURAGE), gap: 150 },
+      ...soundScript(L, 3),
+      { t: 'Now you try! Tap the microphone.' }
+    ]);
+    if (!ok || !alive(token)) return;
+    showControls({ mic: true });
+  } else {
+    /* After two goes we practise together and reward the effort anyway. */
+    setBubble('🌟 Let us say it together: ' + tokenHtml(L));
+    const ok = await say([
+      { t: 'That is okay! Let us say it together.', gap: 150 },
+      ...soundScript(L, 3),
+      { t: 'You are doing so well!' }
+    ]);
+    if (!ok || !alive(token)) return;
+    sfx.sparkle();
+    await awardStar(el.micBtn);
+    if (!alive(token)) return;
+    showControls({ next: true });
+  }
+}
+
+/* ---------- STEP 3: SOUND TAP GAME ---------- */
+async function stepGame(token, isRetry) {
+  stepIndex = 2;
+  setStepDots();
+  clearHeard();
+  showControls({});
+  const L = current;
+
+  const options = Math.random() < 0.5
+    ? [L.game.right, L.game.wrong]
+    : [L.game.wrong, L.game.right];
+
+  setContent(
+    '<div class="tile-row">' +
+      options.map(o =>
+        '<button class="tile" data-right="' + (o === L.game.right) + '" data-word="' + o.word + '">' +
+          '<span class="pic">' + o.pic + '</span>' +
+          '<span class="word">' + o.word + '</span>' +
+        '</button>'
+      ).join('') +
+    '</div>'
+  );
+  setBubble('Which picture starts with ' + tokenHtml(L) + '? Tap it! 👆');
+  $$('.tile', el.stageContent).forEach(t => t.addEventListener('click', () => onGameTap(token, t)));
+
+  replay = () => {
+    stopSpeaking();
+    return say([
+      { t: 'Which one starts with', gap: 100 },
+      ...soundScript(L, 2),
+      { t: options[0].word + ', or ' + options[1].word + '?' }
+    ]);
+  };
+
+  const intro = isRetry ? [] : [{ t: 'Now let us play a game!', gap: 200 }];
+  await say([
+    ...intro,
+    { t: 'Which one starts with', gap: 100 },
+    ...soundScript(L, 2),
+    { t: options[0].word + ', or ' + options[1].word + '?', gap: 150 },
+    { t: 'Tap the picture!' }
+  ]);
+}
+
+let gameLocked = false;
+async function onGameTap(token, tile) {
+  if (gameLocked || !alive(token)) return;
+  gameLocked = true;
+  stopSpeaking();
+  const L = current;
+  const isRight = tile.dataset.right === 'true';
+
+  if (isRight) {
+    tile.classList.add('correct');
+    sfx.cheer();
+    confetti(34);
+    setBubble('🎉 Yes! <b>' + tile.dataset.word + '</b> starts with ' + tokenHtml(L) + '!');
+    await awardStar(tile);
+    if (!alive(token)) { gameLocked = false; return; }
+    await say([
+      { t: pick(PRAISE), gap: 120 },
+      { t: tile.dataset.word + ' starts with', gap: 80 },
+      { t: L.tts, sound: true }
+    ]);
+    if (!alive(token)) { gameLocked = false; return; }
+    showControls({ next: true });
+  } else {
+    tile.classList.add('gentle');
+    sfx.hug();
+    setBubble('👏 Great try! Listen again: ' + tokenHtml(L));
+    await say([
+      { t: 'Great try! ' + tile.dataset.word + ' starts with a different sound.', gap: 150 },
+      { t: 'We are looking for', gap: 80 },
+      ...soundScript(L, 3),
+      { t: 'Have another go — you can do it!' }
+    ]);
+    setTimeout(() => tile.classList.remove('gentle'), 600);
+  }
+  gameLocked = false;
+}
+
+/* ---------- LESSON COMPLETE ---------- */
+async function finishLesson(token) {
+  const L = current;
+  progress[L.letter] = Math.max(progress[L.letter] || 0, starsEarned);
+  saveProgress();
+
+  el.doneTitle.textContent = starsEarned >= 3 ? 'Amazing!' : 'Well done!';
+  el.doneStars.forEach((s, i) => s.classList.toggle('lit', i < starsEarned));
+  el.overlay.classList.add('show');
+  setAvatar('celebrating');
+  sfx.cheer();
+  confetti(60);
+
+  const nextLesson = CURRICULUM[currentIndex + 1];
+  await say([
+    { t: 'You finished the letter ' + L.letter + '!', gap: 150 },
+    { t: 'You earned ' + starsEarned + (starsEarned === 1 ? ' star' : ' stars') + '!', gap: 200 },
+    { t: L.letter + ' says', gap: 80 },
+    ...soundScript(L, 2),
+    nextLesson
+      ? { t: 'Tap the green button to pick another letter!' }
+      : { t: 'You learned every letter! You are a phonics champion!' }
+  ]);
+  if (!alive(token)) return;
+  setAvatar('idle');
+}
+
+/* ---------- FLOW CONTROL ---------- */
+async function startLesson(index) {
+  const token = newFlow();
+  currentIndex = index;
+  current = CURRICULUM[index];
+  starsEarned = 0;
+  attempts = 0;
+  gameLocked = false;
+  paintStars();
+  el.overlay.classList.remove('show');
+  showScreen('lesson');
+  await stepDiscovery(token);
+}
+
+async function advance() {
+  const token = flowToken;
+  sfx.tap();
+  if (stepIndex === 0) {
+    /* A star just for listening carefully — every step is rewarded. */
+    setBubble('\ud83d\udc4f Great listening!');
+    await awardStar(el.nextBtn);
+    if (!alive(token)) return;
+    attempts = 0;
+    await stepRepeat(token, false);
+  } else if (stepIndex === 1) {
+    await stepGame(token, false);
+  } else {
+    await finishLesson(token);
+  }
+}
+
+/* -----------------------------------------------------------------
+   12. MAP SCREEN
+   ----------------------------------------------------------------- */
+function renderMap() {
+  el.starTotal.textContent = totalStars();
+  el.letterGrid.innerHTML = CURRICULUM.map((L, i) => {
+    const stars = progress[L.letter] || 0;
+    const dots = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+    return '<button class="letter-card' + (stars >= 3 ? ' done' : '') + '" data-index="' + i + '" ' +
+      'aria-label="Learn the letter ' + L.letter + '">' +
+      '<span class="card-pic">' + L.examples[0].pic + '</span>' +
+      '<span class="card-letters">' + L.letter + '<span style="opacity:.65">' + L.letter.toLowerCase() + '</span></span>' +
+      '<span class="card-stars">' + dots + '</span>' +
+    '</button>';
+  }).join('');
+  $$('.letter-card', el.letterGrid).forEach(card => {
+    card.addEventListener('click', () => {
+      sfx.tap();
+      startLesson(Number(card.dataset.index));
+    });
+  });
+}
+
+async function goMap(greet) {
+  newFlow();
+  renderMap();
+  el.overlay.classList.remove('show');
+  showScreen('map');
+  if (greet) await say(greet);
+}
+
+/* -----------------------------------------------------------------
+   13. WIRING
+   ----------------------------------------------------------------- */
+el.startBtn.addEventListener('click', async () => {
+  el.startBtn.disabled = true;
+  ac();                                   /* unlock audio on the first tap */
+  sfx.tap();
+  el.grownupNote.innerHTML = '🎤 Please tap <b>Allow</b> so Ollie can hear you!';
+  await requestMic();
+
+  if (micAllowed === false || !sttSupported) {
+    /* Some browsers refuse microphone access on pages opened straight from
+       disk (file://). Say so, but never let it block the lesson. */
+    const fileHint = location.protocol === 'file:'
+      ? ' <br><small>Tip for grown-ups: browsers often block microphones on files opened from your computer. Serve the folder (for example <b>npx serve</b>) and open it over <b>http://localhost</b> to enable listening.</small>'
+      : '';
+    el.grownupNote.innerHTML =
+      '🔈 No microphone — no problem! Ollie will say every sound <b>with</b> you instead.' + fileHint;
+  } else {
+    el.grownupNote.innerHTML = '✅ All set! Ollie can hear you now.';
+  }
+
+  await say([
+    { t: 'Hello! I am Ollie the owl.', gap: 150 },
+    { t: 'I am so happy you are here!', gap: 150 },
+    { t: 'Today we will learn some letter sounds together.', gap: 200 },
+    { t: 'Pick a letter to start!' }
+  ]);
+  el.startBtn.disabled = false;
+  goMap(null);
+});
+
+el.mapHearBtn.addEventListener('click', () => {
+  sfx.tap();
+  stopSpeaking();
+  say([{ t: 'Pick a letter, and we will learn its sound together!' }]);
+});
+
+el.homeBtn.addEventListener('click', () => {
+  sfx.tap();
+  goMap([{ t: 'Pick another letter!' }]);
+});
+
+el.repeatBtn.addEventListener('click', async () => {
+  sfx.tap();
+  stopSpeaking();
+  stopListening();
+  if (replay) await replay();
+});
+
+el.micBtn.addEventListener('click', () => {
+  sfx.tap();
+  doListen(flowToken);
+});
+
+el.nextBtn.addEventListener('click', () => { advance(); });
+
+el.doneBtn.addEventListener('click', () => {
+  sfx.tap();
+  const next = CURRICULUM[currentIndex + 1];
+  goMap(next
+    ? [{ t: 'Shall we try the letter ' + next.letter + ' next?' }]
+    : [{ t: 'Pick any letter you like!' }]);
+});
+
+/* Stop Ollie talking to himself when the tab is hidden. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { stopSpeaking(); stopListening(); }
+});
+
+/* -----------------------------------------------------------------
+   14. DECORATIVE BUBBLES + BOOT
+   ----------------------------------------------------------------- */
+function seedBubbles() {
+  const box = $('#bubbles');
+  for (let i = 0; i < 14; i++) {
+    const b = document.createElement('span');
+    const size = 26 + Math.random() * 90;
+    b.style.width = b.style.height = size + 'px';
+    b.style.left = Math.random() * 100 + 'vw';
+    b.style.animationDuration = (16 + Math.random() * 20) + 's';
+    b.style.animationDelay = (-Math.random() * 26) + 's';
+    b.style.opacity = 0.25 + Math.random() * 0.4;
+    box.appendChild(b);
+  }
+}
+
+function boot() {
+  buildAvatars();
+  seedBubbles();
+  loadProgress();
+  renderMap();
+  if (!sttSupported) {
+    el.grownupNote.innerHTML =
+      '👋 <b>For grown-ups:</b> This browser cannot listen for speech, so Ollie will ' +
+      'say every sound <b>with</b> your child instead. For the full talk-and-listen ' +
+      'experience, open this page in <b>Chrome</b> or <b>Edge</b>.';
+  }
+}
+boot();
+</script>
+</body>
+</html>
