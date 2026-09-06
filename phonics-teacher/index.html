@@ -364,6 +364,8 @@
   .step-dots i.on { background: var(--gold); transform: scale(1.35); }
 
   .big-letter {
+    position: relative;
+    cursor: pointer;
     font-size: clamp(58px, 13vh, 120px);
     font-weight: 900;
     line-height: .95;
@@ -376,6 +378,19 @@
   }
   @keyframes letterPop { from { transform: scale(.5) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
   .big-letter small { font-size: .58em; color: var(--ink-soft); }
+  /* The speaker badge tells a non-reader the letter can be tapped to hear it. */
+  .say-badge {
+    position: absolute; top: -14px; right: -14px;
+    width: 54px; height: 54px; border-radius: 50%;
+    background: linear-gradient(160deg, #d8ecff, #9ecdff);
+    display: grid; place-items: center;
+    font-size: 26px;
+    box-shadow: var(--shadow-sm);
+    animation: pulseBtn 2.2s ease-in-out infinite;
+  }
+  /* Pictures lead; the printed word is only a quiet caption for grown-ups,
+     because a phonics beginner should never be asked to read. */
+  .tile .word { font-size: clamp(14px, 2.3vw, 19px); font-weight: 800; opacity: .72; }
 
   .tile-row { display: flex; gap: clamp(12px, 3vw, 30px); flex-wrap: wrap; justify-content: center; }
   .tile {
@@ -390,7 +405,6 @@
   .tile:nth-child(2) { animation-delay: .12s; }
   @keyframes tileIn { from { transform: translateY(30px) scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
   .tile .pic { font-size: clamp(42px, 8.5vw, 68px); line-height: 1.1; }
-  .tile .word { font-size: clamp(18px, 3.4vw, 28px); font-weight: 900; }
   .tile .word b { color: #e0407f; }
   .tile.correct { animation: rightAnswer .6s ease both; box-shadow: var(--shadow), 0 0 0 8px var(--grass) inset; }
   @keyframes rightAnswer {
@@ -507,9 +521,12 @@
   </h1>
   <p class="subtitle">Tap the green button to play! 🎈</p>
 
-  <button class="btn-jumbo btn-play pulse" id="startBtn">
-    <span class="big-emoji">▶️</span> Let's Play!
-  </button>
+  <div class="controls" style="margin-top:4px">
+    <button class="btn-jumbo btn-play pulse" id="startBtn">
+      <span class="big-emoji">▶️</span> Let's Play!
+    </button>
+    <button class="btn-round btn-hear" id="testSoundBtn" aria-label="Test the sound">🔊</button>
+  </div>
 
   <p class="grownup-note" id="grownupNote">
     👋 <b>For grown-ups:</b> This app talks and listens. Your browser will ask for
@@ -642,6 +659,8 @@ const CURRICULUM = [
     /* how the sound is written on screen */
     display: '/sssss/',
     /* how the sound is fed to the speech engine so it sounds right */
+    ph: 's',
+    /* only used if Web Audio is missing */
     tts: 'ssssss',
     simile: 'like a sleepy snake',
     examples: [
@@ -659,6 +678,8 @@ const CURRICULUM = [
   {
     letter: 'A',
     display: '/aaa/',
+    ph: 'a',
+    /* only used if Web Audio is missing */
     tts: 'aah',
     simile: 'like an ant on your arm',
     examples: [
@@ -675,6 +696,8 @@ const CURRICULUM = [
   {
     letter: 'T',
     display: '/t/ /t/ /t/',
+    ph: 't',
+    /* only used if Web Audio is missing */
     tts: 'tuh',
     simile: 'like a ticking clock',
     examples: [
@@ -691,6 +714,8 @@ const CURRICULUM = [
   {
     letter: 'P',
     display: '/p/ /p/ /p/',
+    ph: 'p',
+    /* only used if Web Audio is missing */
     tts: 'puh',
     simile: 'like popping popcorn',
     examples: [
@@ -707,6 +732,8 @@ const CURRICULUM = [
   {
     letter: 'I',
     display: '/iii/',
+    ph: 'i',
+    /* only used if Web Audio is missing */
     tts: 'ih',
     simile: 'like an itchy insect',
     examples: [
@@ -723,6 +750,8 @@ const CURRICULUM = [
   {
     letter: 'N',
     display: '/nnn/',
+    ph: 'n',
+    /* only used if Web Audio is missing */
     tts: 'nnnn',
     simile: 'like a humming nose',
     examples: [
@@ -818,6 +847,183 @@ const sfx = {
 };
 
 /* -----------------------------------------------------------------
+   4b. PHONEME SYNTHESIS — the heart of a phonics app
+
+   A text-to-speech engine cannot say a phoneme. Ask any voice for
+   "nnnn" and it reads the letter NAME ("en"); ask for "puh" and you
+   get a syllable with a vowel glued on. Both teach letter naming,
+   which is the opposite of what a phonics beginner needs.
+
+   So we build the sounds ourselves out of raw audio instead:
+
+     /s/  voiceless fricative — white noise pushed through a high
+          band around 6.8 kHz: a real hiss you can hold.
+     /a/  short a as in "apple" — formant synthesis: a buzzy glottal
+     /i/  short i as in "it"    — source shaped by three resonant
+          bands (F1/F2/F3), which is what makes a vowel that vowel.
+     /n/  nasal — a low hum with the mouth resonances damped away.
+     /t/  voiceless plosives — a moment of silence (the closure),
+     /p/  then a burst of noise: bright and alveolar for /t/, low
+          and lippy for /p/. Crucially, no vowel afterwards.
+
+   Everything is scheduled on the Web Audio clock so it does not
+   depend on which voices a device happens to have installed.
+   ----------------------------------------------------------------- */
+const PHONEMES = {
+  s: { kind: 'fricative', hp: 4200, band: 6800, q: 2.2,  dur: 1.05, vol: 0.24 },
+  a: { kind: 'vowel',  f0: 235, dur: 0.90, vol: 0.55, formants: [[660, 8, 1], [1720, 10, 0.55], [2410, 12, 0.20]] },
+  i: { kind: 'vowel',  f0: 245, dur: 0.90, vol: 0.86, formants: [[400, 10, 1], [1980, 11, 0.70], [2560, 13, 0.22]] },
+  n: { kind: 'nasal',  f0: 225, dur: 0.95, vol: 0.82, lp: 1700, formants: [[260, 9, 1], [1000, 8, 0.14], [2300, 12, 0.05]] },
+  t: { kind: 'plosive', hp: 3000, band: 4300, q: 1.4, closure: 0.05, burst: 0.014, aspiration: 0.055, vol: 0.36 },
+  p: { kind: 'plosive', hp: 250,  band: 900,  q: 1.1, closure: 0.05, burst: 0.012, aspiration: 0.028, vol: 0.78 }
+};
+
+let noiseBuf = null;
+function noiseBuffer(ctx) {
+  if (noiseBuf && noiseBuf.sampleRate === ctx.sampleRate) return noiseBuf;
+  const len = Math.floor(ctx.sampleRate * 2);
+  noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  return noiseBuf;
+}
+
+let liveNodes = [];
+function track(node) { liveNodes.push(node); return node; }
+function stopPhonemes() {
+  liveNodes.forEach(n => {
+    try { n.stop(); } catch (e) { /* not started or already stopped */ }
+    try { n.disconnect(); } catch (e) { /* already detached */ }
+  });
+  liveNodes = [];
+}
+
+/* A buzzy glottal source, shaped by parallel formant bands. */
+function schedVoiced(ctx, dest, spec, t0) {
+  const dur = spec.dur;
+  const osc = track(ctx.createOscillator());
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(spec.f0, t0);
+  osc.frequency.linearRampToValueAtTime(spec.f0 * 0.88, t0 + dur);
+
+  const sum = ctx.createGain();
+  sum.gain.value = 1;
+  spec.formants.forEach(([freq, q, gain]) => {
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = freq;
+    bp.Q.value = q;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    osc.connect(bp); bp.connect(g); g.connect(sum);
+  });
+
+  let chain = sum;
+  if (spec.lp) {                       /* nasals lose their high end */
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = spec.lp;
+    sum.connect(lp);
+    chain = lp;
+  }
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.linearRampToValueAtTime(spec.vol, t0 + 0.07);
+  env.gain.setValueAtTime(spec.vol, t0 + dur - 0.14);
+  env.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+  chain.connect(env); env.connect(dest);
+
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+  return dur;
+}
+
+/* Held noise — a hiss the child can copy for as long as they like. */
+function schedFricative(ctx, dest, spec, t0) {
+  const dur = spec.dur;
+  const src = track(ctx.createBufferSource());
+  src.buffer = noiseBuffer(ctx);
+  src.loop = true;
+
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = spec.hp;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = spec.band; bp.Q.value = spec.q;
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.linearRampToValueAtTime(spec.vol, t0 + 0.09);
+  env.gain.setValueAtTime(spec.vol, t0 + dur - 0.16);
+  env.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+
+  src.connect(hp); hp.connect(bp); bp.connect(env); env.connect(dest);
+  src.start(t0);
+  src.stop(t0 + dur + 0.02);
+  return dur;
+}
+
+/* Silence, then a burst. No vowel on the end — that is the whole point. */
+function schedPlosive(ctx, dest, spec, t0) {
+  const start = t0 + spec.closure;
+  const tail = spec.burst + spec.aspiration;
+  const src = track(ctx.createBufferSource());
+  src.buffer = noiseBuffer(ctx);
+  src.loop = true;
+
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = spec.hp;
+  const bp = ctx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = spec.band; bp.Q.value = spec.q;
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, start);
+  env.gain.linearRampToValueAtTime(spec.vol, start + 0.003);
+  env.gain.linearRampToValueAtTime(spec.vol * 0.35, start + spec.burst);
+  env.gain.exponentialRampToValueAtTime(0.0001, start + tail);
+
+  src.connect(hp); hp.connect(bp); bp.connect(env); env.connect(dest);
+  src.start(start);
+  src.stop(start + tail + 0.02);
+  return spec.closure + tail;
+}
+
+function schedulePhoneme(ctx, dest, key, t0) {
+  const spec = PHONEMES[key];
+  if (!spec) return 0;
+  if (spec.kind === 'fricative') return schedFricative(ctx, dest, spec, t0);
+  if (spec.kind === 'plosive')   return schedPlosive(ctx, dest, spec, t0);
+  return schedVoiced(ctx, dest, spec, t0);
+}
+
+/** Play a pure sound, optionally repeated: /t/ /t/ /t/. */
+let phonemeToken = 0;
+async function playPhoneme(key, times = 1, gapMs = 260) {
+  const ctx = ac();
+  if (!ctx || !PHONEMES[key]) {
+    /* Last resort only: a device with no Web Audio at all. */
+    const lesson = CURRICULUM.find(l => l.ph === key);
+    await speakOne(lesson ? lesson.tts : key, { rate: 0.55, pitch: 1.15 });
+    return;
+  }
+  const token = ++phonemeToken;
+  let t = ctx.currentTime + 0.06;
+  let total = 0.06;
+  for (let i = 0; i < times; i++) {
+    const dur = schedulePhoneme(ctx, ctx.destination, key, t);
+    const step = dur + gapMs / 1000;
+    t += step;
+    total += step;
+  }
+  await wait(total * 1000 + 60);
+  return token === phonemeToken;
+}
+
+/* Exposed so the sounds can be auditioned and tuned from the console,
+   e.g. OlliePhonics.play('s', 3) */
+window.OlliePhonics = { PHONEMES, playPhoneme, schedulePhoneme, play: playPhoneme };
+
+/* -----------------------------------------------------------------
    5. TEXT TO SPEECH — slow, warm, high-pitched teacher voice
    ----------------------------------------------------------------- */
 const synth = window.speechSynthesis;
@@ -880,7 +1086,12 @@ async function say(script) {
   setAvatar('talking');
   for (const part of script) {
     if (token !== speechToken) return false;
-    await speakOne(part.t, part.sound ? { rate: 0.55, pitch: 1.15 } : {});
+    if (part.ph) {
+      /* a real sound, not a word */
+      await playPhoneme(part.ph, part.times || 1, part.gapMs || 260);
+    } else {
+      await speakOne(part.t, {});
+    }
     if (part.gap) await wait(part.gap);
   }
   if (token !== speechToken) return false;
@@ -889,15 +1100,15 @@ async function say(script) {
 }
 function stopSpeaking() {
   speechToken++;
+  phonemeToken++;
+  stopPhonemes();
   if (synth) synth.cancel();
   if (avatarState === 'talking') setAvatar('idle');
 }
 
 /* Repeat the sound three times, e.g. "sss, sss, sss" */
 function soundScript(lesson, times = 3) {
-  const out = [];
-  for (let i = 0; i < times; i++) out.push({ t: lesson.tts, sound: true, gap: 220 });
-  return out;
+  return [{ ph: lesson.ph, times: times, gap: 220 }];
 }
 
 /* -----------------------------------------------------------------
@@ -1187,6 +1398,17 @@ async function awardStar(sourceEl) {
   setAvatar('idle');
 }
 
+/** The big letter is tappable: it plays the pure sound, as often as wanted. */
+function wireSoundButton(lesson) {
+  const btn = $('#soundBtn', el.stageContent);
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    sfx.tap();
+    stopSpeaking();
+    await say([{ ph: lesson.ph, times: 3 }]);
+  });
+}
+
 /* ---------- STEP 1: SOUND DISCOVERY ---------- */
 async function stepDiscovery(token) {
   stepIndex = 0;
@@ -1196,7 +1418,7 @@ async function stepDiscovery(token) {
   const L = current;
 
   setContent(
-    '<div class="big-letter">' + L.letter + '<small>' + L.letter.toLowerCase() + '</small></div>' +
+    '<button class="big-letter" id="soundBtn" aria-label="Hear the sound">' + L.letter + '<small>' + L.letter.toLowerCase() + '</small><span class="say-badge">🔊</span></button>' +
     '<div class="tile-row">' +
       L.examples.map((ex, i) =>
         '<button class="tile" data-say="' + ex.say + '">' +
@@ -1206,6 +1428,7 @@ async function stepDiscovery(token) {
       ).join('') +
     '</div>'
   );
+  wireSoundButton(L);
   $$('.tile', el.stageContent).forEach(t => {
     t.addEventListener('click', async () => {
       sfx.tap();
@@ -1213,7 +1436,7 @@ async function stepDiscovery(token) {
       await say([
         { t: t.dataset.say },
         { t: t.dataset.say + ' starts with' },
-        { t: L.tts, sound: true }
+        { ph: L.ph }
       ]);
     });
   });
@@ -1227,9 +1450,9 @@ async function stepDiscovery(token) {
     ...soundScript(L, 3),
     { t: L.simile + '!', gap: 250 },
     { t: L.examples[0].say + ' starts with', gap: 80 },
-    { t: L.tts, sound: true, gap: 200 },
+    { ph: L.ph, gap: 200 },
     { t: L.examples[1].say + ' starts with', gap: 80 },
-    { t: L.tts, sound: true, gap: 200 },
+    { ph: L.ph, gap: 200 },
     { t: 'Tap a picture to hear it again, or tap the yellow arrow to keep going!' }
   ]);
   if (!ok || !alive(token)) return;
@@ -1245,7 +1468,8 @@ async function stepRepeat(token, isRetry) {
   const L = current;
   const canListen = sttSupported && micAllowed !== false;
 
-  setContent('<div class="big-letter">' + L.letter + '<small>' + L.letter.toLowerCase() + '</small></div>');
+  setContent('<button class="big-letter" id="soundBtn" aria-label="Hear the sound">' + L.letter + '<small>' + L.letter.toLowerCase() + '</small><span class="say-badge">🔊</span></button>');
+  wireSoundButton(L);
   setBubble('Your turn! Can you say ' + tokenHtml(L) + ' for me? 🎤');
 
   replay = () => stepRepeat(token, true);
@@ -1294,7 +1518,7 @@ async function doListen(token) {
     setBubble('🎉 ' + 'You said ' + tokenHtml(L) + ' perfectly!');
     await awardStar(el.micBtn);
     if (!alive(token)) return;
-    await say([{ t: pick(PRAISE), gap: 120 }, { t: 'That was a beautiful' }, { t: L.tts, sound: true }]);
+    await say([{ t: pick(PRAISE), gap: 120 }, { t: 'That was a beautiful' }, { ph: L.ph }]);
     if (!alive(token)) return;
     showControls({ next: true });
     return;
@@ -1390,7 +1614,7 @@ async function onGameTap(token, tile) {
     await say([
       { t: pick(PRAISE), gap: 120 },
       { t: tile.dataset.word + ' starts with', gap: 80 },
-      { t: L.tts, sound: true }
+      { ph: L.ph }
     ]);
     if (!alive(token)) { gameLocked = false; return; }
     showControls({ next: true });
@@ -1398,13 +1622,18 @@ async function onGameTap(token, tile) {
     tile.classList.add('gentle');
     sfx.hug();
     setBubble('👏 Great try! Listen again: ' + tokenHtml(L));
+    setTimeout(() => tile.classList.remove('gentle'), 600);
+    /* Unlock BEFORE Ollie speaks. Re-modelling the sound takes a few
+       seconds and a six-year-old will tap during it; a tap should
+       interrupt him, never be swallowed. */
+    gameLocked = false;
     await say([
       { t: 'Great try! ' + tile.dataset.word + ' starts with a different sound.', gap: 150 },
       { t: 'We are looking for', gap: 80 },
       ...soundScript(L, 3),
       { t: 'Have another go — you can do it!' }
     ]);
-    setTimeout(() => tile.classList.remove('gentle'), 600);
+    return;
   }
   gameLocked = false;
 }
@@ -1528,6 +1757,12 @@ el.startBtn.addEventListener('click', async () => {
   ]);
   el.startBtn.disabled = false;
   goMap(null);
+});
+
+/* Plays a real /sssss/ so a grown-up can check the volume before starting. */
+$('#testSoundBtn').addEventListener('click', async () => {
+  ac();
+  await playPhoneme('s', 2);
 });
 
 el.mapHearBtn.addEventListener('click', () => {

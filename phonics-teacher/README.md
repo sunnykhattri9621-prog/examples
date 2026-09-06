@@ -51,9 +51,31 @@ reinforcement of what Ollie just said.
 *listening* (head tilt, pricked ear tufts, pulsing microphone halo) and
 *celebrating* (bouncing with confetti and flying stars).
 
-**Voice.** `speechSynthesis` at `rate: 0.85`, `pitch: 1.2` for a slow, warm,
-high teacher voice; phonetic sounds drop to `rate: 0.55` so `/sssss/` really
-hisses. An `en` voice is chosen from the browser's list where one exists.
+**The sounds are synthesised, not spoken.** This is the most important part
+of the app. A text-to-speech engine cannot say a phoneme: ask any voice for
+`"nnnn"` and it reads the letter *name* ("en"), and `"puh"` comes back as a
+syllable with a vowel stuck on the end. Both teach letter naming, which is
+exactly what a phonics beginner must not learn first. So the sounds are built
+from raw audio with the Web Audio API instead:
+
+| Sound | How it is made | Measured result |
+|---|---|---|
+| /s/ | white noise through a high band at 6.8 kHz | 98% of energy above 3 kHz, holds for 1.0 s |
+| /a/ | formant synthesis, F1 660 / F2 1720 / F3 2410 | spectral peak at 668 Hz |
+| /i/ | formant synthesis, F1 400 / F2 1980 / F3 2560 | higher F2 energy than /a/, as it must be |
+| /n/ | voiced hum with the mouth resonances damped | 84% of energy below 1 kHz |
+| /t/ | closure silence, then a bright alveolar burst | 27 ms, 92% of energy above 3 kHz |
+| /p/ | closure silence, then a low lippy burst | 17 ms, far darker than /t/ |
+
+Nothing is glued on after a plosive, so /t/ is `/t/` and not "tuh". Because
+this is generated audio it also does not depend on which voices a device
+happens to have installed. Speech synthesis is still used, at `rate: 0.85`
+and `pitch: 1.2`, but only for Ollie's English sentences.
+
+Tap the big letter (it carries a 🔊 badge) to replay the pure sound as often
+as the child wants, and the 🔊 button on the welcome screen plays a test sound
+so a grown-up can check the volume before starting. The sounds can be
+auditioned from the console with `OlliePhonics.play('s', 3)`.
 
 **Forgiving audio matching.** Six-year-olds mumble and recognisers guess whole
 words, so a spoken answer is accepted if it is on the letter's accept list
@@ -68,5 +90,10 @@ attempt gets "Great try! Let us listen together again", the sound is modelled
 once more, and after a second attempt the sound is practised together and the
 star is awarded anyway. A wrong tap in the game wobbles gently, re-models the
 sound and leaves both tiles live.
+
+**Pictures lead, words follow.** The printed word under each picture is a
+quiet caption for the grown-up. The child is never asked to read anything —
+every question is asked out loud and answered by tapping a picture, saying a
+sound, or tapping the letter to hear it again.
 
 **Progress** is kept in `localStorage`, so stars survive a refresh.
